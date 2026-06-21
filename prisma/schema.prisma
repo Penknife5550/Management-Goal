@@ -1,0 +1,151 @@
+// ============================================================
+// Prisma-Schema - CREDO Fuehrungs-Cockpit (Goal/WIG-Modul)
+// Datenmodell der strategischen Ebene nach PLAN.md Abschnitt 2.
+// Scope ab Tag 1: ownerId / rechtseinheitId (RBAC-Durchsetzung folgt spaeter).
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GoalStatus {
+  BACKLOG
+  FOKUS // aktive WIG (Wildly Important Goal)
+  ERREICHT
+  ARCHIVIERT
+}
+
+enum Ampel {
+  GRUEN
+  GELB
+  ROT
+}
+
+enum TaskStatus {
+  TODO
+  DOING
+  DONE
+}
+
+enum EnrichmentSource {
+  USER
+  AI_OLLAMA
+  AI_CLOUD
+}
+
+// Rechtseinheit = eine der Einrichtungen (hier nur Stammtabelle fuer den Scope).
+model Rechtseinheit {
+  id      String  @id @default(cuid())
+  name    String
+  kuerzel String?
+  goals   Goal[]
+
+  @@map("rechtseinheit")
+}
+
+// Minimaler Nutzer fuer den Owner-Scope (Nutzerverwaltung kommt in Phase 4).
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  goals     Goal[]   @relation("Owner")
+  createdAt DateTime @default(now())
+
+  @@map("user")
+}
+
+model Goal {
+  id          String     @id @default(cuid())
+  titel       String
+  outcome     String? // Drucker: angestrebter Beitrag (Pflicht bei FOKUS)
+  status      GoalStatus @default(BACKLOG)
+  ampel       Ampel      @default(GELB)
+  fortschritt Int        @default(0) // Lag-Gesamtfortschritt 0-100
+  dueDate     DateTime?
+  abhaengig   Boolean    @default(false) // Hebel-Tag: selbst umsetzbar vs. abhaengig
+
+  // Scope ab Tag 1
+  ownerId         String
+  owner           User          @relation("Owner", fields: [ownerId], references: [id])
+  rechtseinheitId String
+  rechtseinheit   Rechtseinheit @relation(fields: [rechtseinheitId], references: [id])
+
+  // MBO-Kaskade Org -> Bereich -> Person
+  parentGoalId String?
+  parentGoal   Goal?   @relation("Kaskade", fields: [parentGoalId], references: [id])
+  childGoals   Goal[]  @relation("Kaskade")
+
+  zugewiesenVon String? // zentral zugewiesen durch (Phase 5)
+
+  tasks        Task[]
+  leadMeasures LeadMeasure[]
+  learningLog  LearningLog?
+
+  // KI-Anreicherung: Felder vorgesehen, in diesem Slice NICHT verdrahtet
+  aiVorschlag  Json?
+  aiConfidence Float?
+  aiEnrichedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerId, status])
+  @@index([rechtseinheitId, status])
+  @@map("goal")
+}
+
+// 4DX: steuerbarer Fruehindikator je WIG.
+model LeadMeasure {
+  id           String @id @default(cuid())
+  goalId       String
+  goal         Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  beschreibung String
+  zielwert     Int
+  istwert      Int    @default(0)
+
+  @@index([goalId])
+  @@map("lead_measure")
+}
+
+// Drucker: Feedback-Analyse (erwartet vs. tatsaechlich). Volle Auswertung = Phase 7.
+model LearningLog {
+  id           String    @id @default(cuid())
+  goalId       String    @unique
+  goal         Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  erwartet     String
+  tatsaechlich String?
+  reviewAm     DateTime?
+
+  @@map("learning_log")
+}
+
+// Schema-only in diesem Slice: haelt die Goal<->Task-Relation gueltig,
+// damit Phase 1 (Kanban/Eisenhower) ohne Migrations-Bruch andocken kann.
+// KEINE API / KEINE UI in diesem Slice.
+model Task {
+  id                   String           @id @default(cuid())
+  goalId               String?
+  goal                 Goal?            @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  titel                String
+  status               TaskStatus       @default(TODO)
+  position             Float            @default(0)
+  important            Boolean          @default(false)
+  urgent               Boolean          @default(false)
+  dueDate              DateTime?
+  zeitGeplantMin       Int?
+  zeitIstMin           Int?
+  aiQuadrantSuggestion Int?
+  aiConfidence         Float?
+  aiReasoning          String?
+  lastModifiedBy       EnrichmentSource @default(USER)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([goalId, status])
+  @@map("task")
+}
