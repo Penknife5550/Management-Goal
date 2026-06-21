@@ -1,0 +1,9 @@
+node_modules
+.next
+playwright-report
+test-results
+coverage
+prisma/migrations
+
+# Strategie-/Doku-Markdown bewusst ausgenommen (Tabellen/Prosa nicht umbrechen)
+*.md

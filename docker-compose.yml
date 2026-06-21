@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cockpit-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: credo
+      POSTGRES_PASSWORD: credo_dev_2026
+      POSTGRES_DB: cockpit
+    ports:
+      - "5433:5432"
+    volumes:
+      - cockpit_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U credo -d cockpit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cockpit-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://credo:credo_dev_2026@db:5432/cockpit?schema=public"
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+    # Migration + Seed laufen beim Start, danach der Server
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && npm run start"
+
+volumes:
+  cockpit_db_data:
