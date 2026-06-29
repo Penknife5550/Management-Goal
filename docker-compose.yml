@@ -1,3 +1,7 @@
+# ACHTUNG: Diese Compose-Datei ist NUR fuer die lokale Entwicklung gedacht.
+# Fuer einen echten Betrieb: starkes Passwort via Umgebung setzen
+# (POSTGRES_PASSWORD=...), Seed aus der Startkette nehmen und Secrets
+# ueber ein Secret-Management bereitstellen.
 services:
   db:
     image: postgres:16-alpine
@@ -5,7 +9,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: credo
-      POSTGRES_PASSWORD: credo_dev_2026
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-credo_dev_2026}
       POSTGRES_DB: cockpit
     ports:
       - "5433:5432"
@@ -27,7 +31,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://credo:credo_dev_2026@db:5432/cockpit?schema=public"
+      DATABASE_URL: "postgresql://credo:${POSTGRES_PASSWORD:-credo_dev_2026}@db:5432/cockpit?schema=public"
       NODE_ENV: production
     ports:
       - "3000:3000"
