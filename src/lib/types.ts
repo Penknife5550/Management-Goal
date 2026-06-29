@@ -32,7 +32,7 @@ export interface ZielAktionen {
   onErreicht: (id: string) => void;
   onZurueck: (id: string) => void;
   onArchiv: (id: string) => void;
-  onLeadAnlegen: (zielId: string, beschreibung: string, zielwert: number) => void;
+  onLeadAnlegen: (zielId: string, beschreibung: string, zielwert: number) => Promise<void> | void;
   onLeadIstwert: (zielId: string, leadId: string, istwert: number) => void;
   onLeadLoeschen: (zielId: string, leadId: string) => void;
 }

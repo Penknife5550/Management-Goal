@@ -7,6 +7,7 @@ import type { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { toZielDTO } from "@/lib/goal-service";
 import { goalQuickAddSchema } from "@/lib/validation/goal";
 
 export async function GET() {
@@ -17,7 +18,7 @@ export async function GET() {
       include: { leadMeasures: { orderBy: { beschreibung: "asc" } } },
       orderBy: { createdAt: "desc" },
     });
-    return jsonOk(goals);
+    return jsonOk(goals.map(toZielDTO));
   } catch (fehler) {
     console.error("GET /api/goals fehlgeschlagen:", fehler);
     return jsonError("Ziele konnten nicht geladen werden.", 500);
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       },
       include: { leadMeasures: true },
     });
-    return jsonOk(goal, 201);
+    return jsonOk(toZielDTO(goal), 201);
   } catch (fehler) {
     console.error("POST /api/goals fehlgeschlagen:", fehler);
     return jsonError("Ziel konnte nicht angelegt werden.", 500);

@@ -71,6 +71,51 @@ export function pruefeFokusHebung(
   return { erlaubt: true };
 }
 
+export interface AenderungsErgebnis {
+  ok: boolean;
+  status?: number;
+  grund?: string;
+}
+
+/**
+ * Reine Entscheidung ueber eine Ziel-Aenderung (ohne DB) - macht die
+ * HTTP-Semantik (409 vs. 400) unit-testbar:
+ * - unerlaubter Status-Uebergang -> 409
+ * - Heben auf FOKUS am WIG-Limit oder ohne Outcome -> 409
+ * - bereits FOKUS und Outcome wuerde geleert -> 400
+ *
+ * @param aktiveWigAnzahl Anzahl bereits aktiver FOKUS-Ziele OHNE das zu aendernde
+ */
+export function entscheideZielAenderung(
+  aktuellerStatus: GoalStatus,
+  zielStatus: GoalStatus,
+  neuesOutcome: string | null | undefined,
+  aktiveWigAnzahl: number,
+): AenderungsErgebnis {
+  if (!istStatusUebergangErlaubt(aktuellerStatus, zielStatus)) {
+    return {
+      ok: false,
+      status: 409,
+      grund: `Status-Wechsel von ${aktuellerStatus} zu ${zielStatus} ist nicht erlaubt.`,
+    };
+  }
+
+  if (zielStatus === "FOKUS") {
+    if (aktuellerStatus !== "FOKUS") {
+      const pruef = pruefeFokusHebung(aktiveWigAnzahl, neuesOutcome);
+      if (!pruef.erlaubt) return { ok: false, status: 409, grund: pruef.grund };
+    } else if (!outcomePflichtErfuellt("FOKUS", neuesOutcome)) {
+      return {
+        ok: false,
+        status: 400,
+        grund: "Ein Fokus-Ziel braucht ein Outcome (den angestrebten Beitrag).",
+      };
+    }
+  }
+
+  return { ok: true };
+}
+
 export type CountdownTon = "neutral" | "warnung" | "ueberfaellig" | "ohne";
 
 export interface CountdownInfo {

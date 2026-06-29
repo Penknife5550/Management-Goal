@@ -2,30 +2,22 @@
 // src/app/api/lead-measures/[id]/route.ts
 // PATCH  /api/lead-measures/:id  - Fortschritt/Beschreibung aktualisieren
 // DELETE /api/lead-measures/:id  - Lead Measure loeschen
-// Owner-Scope wird ueber das zugehoerige Ziel geprueft.
+// Owner-Scope zentral via goal-service (findeLeadMeasureFuerNutzer).
 // ============================================================
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { findeLeadMeasureFuerNutzer, toLeadMeasureDTO } from "@/lib/goal-service";
 import { leadMeasureUpdateSchema } from "@/lib/validation/goal";
 
 type Kontext = { params: Promise<{ id: string }> };
-
-// Stellt sicher, dass die Lead Measure zu einem Ziel des Nutzers gehoert.
-async function gehoertNutzer(leadMeasureId: string, ownerId: string): Promise<boolean> {
-  const treffer = await prisma.leadMeasure.findFirst({
-    where: { id: leadMeasureId, goal: { ownerId } },
-    select: { id: true },
-  });
-  return treffer !== null;
-}
 
 export async function PATCH(request: NextRequest, { params }: Kontext) {
   try {
     const { id } = await params;
     const nutzer = getAktuellerNutzer();
-    if (!(await gehoertNutzer(id, nutzer.id))) {
+    if (!(await findeLeadMeasureFuerNutzer(id, nutzer.id))) {
       return jsonError("Lead Measure nicht gefunden.", 404);
     }
 
@@ -39,7 +31,7 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
       where: { id },
       data: parsed.data,
     });
-    return jsonOk(leadMeasure);
+    return jsonOk(toLeadMeasureDTO(leadMeasure));
   } catch (fehler) {
     console.error("PATCH lead-measure fehlgeschlagen:", fehler);
     return jsonError("Lead Measure konnte nicht aktualisiert werden.", 500);
@@ -50,7 +42,7 @@ export async function DELETE(_request: NextRequest, { params }: Kontext) {
   try {
     const { id } = await params;
     const nutzer = getAktuellerNutzer();
-    if (!(await gehoertNutzer(id, nutzer.id))) {
+    if (!(await findeLeadMeasureFuerNutzer(id, nutzer.id))) {
       return jsonError("Lead Measure nicht gefunden.", 404);
     }
 

@@ -1,15 +1,15 @@
 // ============================================================
 // src/lib/goal-service.ts
-// DB-naher Service: Owner-Scope + Geschaeftsregeln gebuendelt,
-// damit die API-Routen schlank und lesbar bleiben.
+// DB-naher Service: Owner-Scope-Durchsetzung + DTO-Mapping.
+// Haelt die API-Routen schlank und entkoppelt das Wire-Format (DTO)
+// vom Prisma-Persistenzmodell (kein Leak interner Felder).
 // ============================================================
+import type { Goal, LeadMeasure } from "@prisma/client";
 import { prisma } from "./db";
-import {
-  type GoalStatus,
-  istStatusUebergangErlaubt,
-  outcomePflichtErfuellt,
-  pruefeFokusHebung,
-} from "./goals";
+import type { Ampel, GoalStatus } from "./goals";
+import type { LeadMeasureDTO, ZielDTO } from "./types";
+
+export type GoalMitLeads = Goal & { leadMeasures: LeadMeasure[] };
 
 // Laedt ein Ziel nur, wenn es dem Nutzer gehoert (Scope-Durchsetzung).
 export function findeZielFuerNutzer(id: string, ownerId: string) {
@@ -19,60 +19,35 @@ export function findeZielFuerNutzer(id: string, ownerId: string) {
   });
 }
 
-export function zaehleAktiveWigs(ownerId: string, ausserId?: string) {
-  return prisma.goal.count({
-    where: {
-      ownerId,
-      status: "FOKUS",
-      ...(ausserId ? { id: { not: ausserId } } : {}),
-    },
+// Laedt eine Lead Measure nur, wenn ihr Ziel dem Nutzer gehoert (Scope zentral).
+export function findeLeadMeasureFuerNutzer(leadMeasureId: string, ownerId: string) {
+  return prisma.leadMeasure.findFirst({
+    where: { id: leadMeasureId, goal: { ownerId } },
   });
 }
 
-export interface RegelErgebnis {
-  ok: boolean;
-  status?: number;
-  grund?: string;
+// --- DTO-Mapping: nur freigegebene Felder, Datumsfelder als ISO-String ---
+
+export function toLeadMeasureDTO(lm: LeadMeasure): LeadMeasureDTO {
+  return {
+    id: lm.id,
+    beschreibung: lm.beschreibung,
+    zielwert: lm.zielwert,
+    istwert: lm.istwert,
+  };
 }
 
-/**
- * Prueft die Geschaeftsregeln einer Ziel-Aenderung:
- * - erlaubter Status-Uebergang
- * - harte WIG-Grenze beim Heben auf FOKUS
- * - Outcome-Pflicht bei FOKUS (auch wenn Outcome geleert wuerde)
- */
-export async function pruefeZielAenderung(args: {
-  id: string;
-  ownerId: string;
-  aktuellerStatus: GoalStatus;
-  zielStatus: GoalStatus;
-  neuesOutcome: string | null | undefined;
-}): Promise<RegelErgebnis> {
-  const { id, ownerId, aktuellerStatus, zielStatus, neuesOutcome } = args;
-
-  if (!istStatusUebergangErlaubt(aktuellerStatus, zielStatus)) {
-    return {
-      ok: false,
-      status: 409,
-      grund: `Status-Wechsel von ${aktuellerStatus} zu ${zielStatus} ist nicht erlaubt.`,
-    };
-  }
-
-  if (zielStatus === "FOKUS") {
-    if (aktuellerStatus !== "FOKUS") {
-      const anzahl = await zaehleAktiveWigs(ownerId, id);
-      const pruef = pruefeFokusHebung(anzahl, neuesOutcome);
-      if (!pruef.erlaubt) {
-        return { ok: false, status: 409, grund: pruef.grund };
-      }
-    } else if (!outcomePflichtErfuellt("FOKUS", neuesOutcome)) {
-      return {
-        ok: false,
-        status: 400,
-        grund: "Ein Fokus-Ziel braucht ein Outcome (den angestrebten Beitrag).",
-      };
-    }
-  }
-
-  return { ok: true };
+export function toZielDTO(goal: GoalMitLeads): ZielDTO {
+  return {
+    id: goal.id,
+    titel: goal.titel,
+    outcome: goal.outcome,
+    status: goal.status as GoalStatus,
+    ampel: goal.ampel as Ampel,
+    fortschritt: goal.fortschritt,
+    dueDate: goal.dueDate ? goal.dueDate.toISOString() : null,
+    abhaengig: goal.abhaengig,
+    leadMeasures: goal.leadMeasures.map(toLeadMeasureDTO),
+    createdAt: goal.createdAt.toISOString(),
+  };
 }
