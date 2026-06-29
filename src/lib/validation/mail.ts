@@ -4,6 +4,19 @@
 // ============================================================
 import { z } from "zod";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Optionale E-Mail: leer erlaubt, sonst gueltiges Format. Verhindert, dass ein
+// Tippfehler still gespeichert wird (Absender bricht sonst den Versand, Reply-To
+// wird stumm verworfen).
+const optionaleEmail = (feld: string) =>
+  z
+    .string()
+    .trim()
+    .max(255)
+    .default("")
+    .refine((v) => v === "" || EMAIL_PATTERN.test(v), { message: `${feld} ist keine gueltige E-Mail-Adresse` });
+
 // Beim Speichern mit isActive=true sind Pflichtfelder erforderlich;
 // die feinere Pruefung passiert in der Route (haengt von isActive ab).
 export const smtpConfigSchema = z.object({
@@ -13,9 +26,9 @@ export const smtpConfigSchema = z.object({
   username: z.string().trim().max(255).default(""),
   // Leerer/maskierter Wert = unveraendert lassen (Route entscheidet).
   password: z.string().max(500).default(""),
-  fromEmail: z.string().trim().max(255).default(""),
+  fromEmail: optionaleEmail("Absender-Adresse"),
   fromName: z.string().trim().max(255).default("CREDO Fuehrungs-Cockpit"),
-  replyToEmail: z.string().trim().max(255).default(""),
+  replyToEmail: optionaleEmail("Antwort-an-Adresse"),
   isActive: z.boolean().default(false),
 });
 
