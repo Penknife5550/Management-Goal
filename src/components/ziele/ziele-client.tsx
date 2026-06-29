@@ -1,17 +1,19 @@
 "use client";
 
 import { AlertCircle, PartyPopper, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { senden } from "@/lib/client";
 import { WIG_LIMIT } from "@/lib/constants";
 import type { Ampel } from "@/lib/goals";
-import type { LeadMeasureDTO, ZielDTO } from "@/lib/types";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { ZielDTO } from "@/lib/types";
 import { WigScoreboard } from "./wig-scoreboard";
 import { ZielAufFokusModal } from "./ziel-auf-fokus-modal";
 import { ZielBacklogListe } from "./ziel-backlog-liste";
 import { ZielQuickAdd } from "./ziel-quick-add";
 import { ZieleEmptyState } from "./ziele-empty-state";
+
+const FEIER_DAUER_MS = 8000;
 
 export function ZieleClient() {
   const [ziele, setZiele] = useState<ZielDTO[]>([]);
@@ -27,31 +29,40 @@ export function ZieleClient() {
       .finally(() => setLaedt(false));
   }, []);
 
+  // Feier-Meldung nach einer Weile automatisch ausblenden (mit Cleanup).
+  useEffect(() => {
+    if (!feier) return;
+    const t = window.setTimeout(() => setFeier(null), FEIER_DAUER_MS);
+    return () => window.clearTimeout(t);
+  }, [feier]);
+
   const fokusZiele = ziele.filter((z) => z.status === "FOKUS");
   const backlogZiele = ziele.filter((z) => z.status === "BACKLOG");
   const limitErreicht = fokusZiele.length >= WIG_LIMIT;
 
-  // Optimistisches Update mit Rollback bei Fehler.
-  const optimistisch = useCallback(
-    async (naechster: ZielDTO[], aufruf: () => Promise<unknown>, vorher: ZielDTO[]) => {
-      setZiele(naechster);
-      setFehler(null);
-      try {
-        await aufruf();
-      } catch (e) {
-        setZiele(vorher);
-        setFehler((e as Error).message);
-      }
-    },
-    [],
-  );
-
-  function aktualisiereZiel(id: string, teil: Partial<ZielDTO>): ZielDTO[] {
-    return ziele.map((z) => (z.id === id ? { ...z, ...teil } : z));
+  // Lade den Serverstand neu (sauberer Rollback statt Stale-Snapshot).
+  async function ladeNeu() {
+    try {
+      setZiele(await senden<ZielDTO[]>("/api/goals", "GET"));
+    } catch {
+      // Sekundaerfehler bewusst ignorieren - die Primaermeldung steht bereits.
+    }
   }
 
-  function onAnlegen(titel: string) {
-    const tempId = `temp-${Date.now()}`;
+  // Optimistisches Update; bei Fehler Meldung + Resync vom Server.
+  async function mutiere(updater: (z: ZielDTO[]) => ZielDTO[], aufruf: () => Promise<unknown>) {
+    setFehler(null);
+    setZiele((prev) => updater(prev));
+    try {
+      await aufruf();
+    } catch (e) {
+      setFehler((e as Error).message);
+      await ladeNeu();
+    }
+  }
+
+  async function onAnlegen(titel: string) {
+    const tempId = `temp-${crypto.randomUUID()}`;
     const temp: ZielDTO = {
       id: tempId,
       titel,
@@ -64,125 +75,142 @@ export function ZieleClient() {
       leadMeasures: [],
       createdAt: new Date().toISOString(),
     };
-    const vorher = ziele;
-    setZiele([temp, ...vorher]);
     setFehler(null);
-    senden<ZielDTO>("/api/goals", "POST", { titel })
-      .then((neu) => setZiele((akt) => akt.map((z) => (z.id === tempId ? neu : z))))
-      .catch((e: Error) => {
-        setZiele(vorher);
-        setFehler(e.message);
-      });
+    setZiele((prev) => [temp, ...prev]);
+    try {
+      const neu = await senden<ZielDTO>("/api/goals", "POST", { titel });
+      setZiele((prev) => prev.map((z) => (z.id === tempId ? neu : z)));
+    } catch (e) {
+      setFehler((e as Error).message);
+      setZiele((prev) => prev.filter((z) => z.id !== tempId));
+    }
   }
 
-  function onFokusBestaetigen(outcome: string, erwartet: string, dueDate: string | null) {
+  async function onFokusBestaetigen(outcome: string, erwartet: string, dueDate: string | null) {
     const ziel = modalZiel;
     setModalZiel(null);
     if (!ziel) return;
-    const naechster = aktualisiereZiel(ziel.id, { status: "FOKUS", outcome, dueDate });
-    void optimistisch(
-      naechster,
+    await mutiere(
+      (prev) =>
+        prev.map((z) => (z.id === ziel.id ? { ...z, status: "FOKUS", outcome, dueDate } : z)),
       () =>
-        senden<ZielDTO>(`/api/goals/${ziel.id}`, "PATCH", {
+        senden(`/api/goals/${ziel.id}`, "PATCH", {
           status: "FOKUS",
           outcome,
           dueDate,
           ...(erwartet ? { erwartet } : {}),
         }),
-      ziele,
     );
   }
 
-  function onErreicht(id: string) {
-    const ziel = ziele.find((z) => z.id === id);
-    void optimistisch(
-      aktualisiereZiel(id, { status: "ERREICHT", fortschritt: 100 }),
-      () => senden(`/api/goals/${id}`, "PATCH", { status: "ERREICHT", fortschritt: 100 }),
-      ziele,
+  async function onErreicht(id: string) {
+    const titel = ziele.find((z) => z.id === id)?.titel ?? "Ziel";
+    setFehler(null);
+    setZiele((prev) =>
+      prev.map((z) => (z.id === id ? { ...z, status: "ERREICHT", fortschritt: 100 } : z)),
     );
-    setFeier(`Geschafft: „${ziel?.titel ?? "Ziel"}“ ist erreicht.`);
-    window.setTimeout(() => setFeier(null), 5000);
+    try {
+      await senden(`/api/goals/${id}`, "PATCH", { status: "ERREICHT", fortschritt: 100 });
+      setFeier(`Geschafft: „${titel}“ ist erreicht.`);
+    } catch (e) {
+      setFehler((e as Error).message);
+      await ladeNeu();
+    }
   }
 
   function onZurueck(id: string) {
-    void optimistisch(
-      aktualisiereZiel(id, { status: "BACKLOG" }),
+    void mutiere(
+      (prev) => prev.map((z) => (z.id === id ? { ...z, status: "BACKLOG" } : z)),
       () => senden(`/api/goals/${id}`, "PATCH", { status: "BACKLOG" }),
-      ziele,
     );
   }
 
   function onArchiv(id: string) {
-    void optimistisch(
-      ziele.filter((z) => z.id !== id),
+    void mutiere(
+      (prev) => prev.filter((z) => z.id !== id),
       () => senden(`/api/goals/${id}`, "DELETE"),
-      ziele,
     );
   }
 
   function onFortschritt(id: string, fortschritt: number) {
-    void optimistisch(
-      aktualisiereZiel(id, { fortschritt }),
+    void mutiere(
+      (prev) => prev.map((z) => (z.id === id ? { ...z, fortschritt } : z)),
       () => senden(`/api/goals/${id}`, "PATCH", { fortschritt }),
-      ziele,
     );
   }
 
   function onAmpel(id: string, ampel: Ampel) {
-    void optimistisch(
-      aktualisiereZiel(id, { ampel }),
+    void mutiere(
+      (prev) => prev.map((z) => (z.id === id ? { ...z, ampel } : z)),
       () => senden(`/api/goals/${id}`, "PATCH", { ampel }),
-      ziele,
     );
   }
 
-  function setzeLeadMeasures(zielId: string, leads: LeadMeasureDTO[]): ZielDTO[] {
-    return ziele.map((z) => (z.id === zielId ? { ...z, leadMeasures: leads } : z));
-  }
-
-  function onLeadAnlegen(zielId: string, beschreibung: string, zielwert: number) {
-    const ziel = ziele.find((z) => z.id === zielId);
-    if (!ziel) return;
-    const tempId = `temp-lm-${Date.now()}`;
-    const temp: LeadMeasureDTO = { id: tempId, beschreibung, zielwert, istwert: 0 };
-    const vorher = ziele;
-    setZiele(setzeLeadMeasures(zielId, [...ziel.leadMeasures, temp]));
+  async function onLeadAnlegen(zielId: string, beschreibung: string, zielwert: number) {
+    const tempId = `temp-lm-${crypto.randomUUID()}`;
     setFehler(null);
-    senden<LeadMeasureDTO>(`/api/goals/${zielId}/lead-measures`, "POST", { beschreibung, zielwert })
-      .then((neu) =>
-        setZiele((akt) =>
-          akt.map((z) =>
-            z.id === zielId
-              ? { ...z, leadMeasures: z.leadMeasures.map((lm) => (lm.id === tempId ? neu : lm)) }
-              : z,
-          ),
+    setZiele((prev) =>
+      prev.map((z) =>
+        z.id === zielId
+          ? {
+              ...z,
+              leadMeasures: [...z.leadMeasures, { id: tempId, beschreibung, zielwert, istwert: 0 }],
+            }
+          : z,
+      ),
+    );
+    try {
+      const neu = await senden<{
+        id: string;
+        beschreibung: string;
+        zielwert: number;
+        istwert: number;
+      }>(`/api/goals/${zielId}/lead-measures`, "POST", { beschreibung, zielwert });
+      setZiele((prev) =>
+        prev.map((z) =>
+          z.id === zielId
+            ? { ...z, leadMeasures: z.leadMeasures.map((lm) => (lm.id === tempId ? neu : lm)) }
+            : z,
         ),
-      )
-      .catch((e: Error) => {
-        setZiele(vorher);
-        setFehler(e.message);
-      });
+      );
+    } catch (e) {
+      setFehler((e as Error).message);
+      setZiele((prev) =>
+        prev.map((z) =>
+          z.id === zielId
+            ? { ...z, leadMeasures: z.leadMeasures.filter((lm) => lm.id !== tempId) }
+            : z,
+        ),
+      );
+    }
   }
 
   function onLeadIstwert(zielId: string, leadId: string, istwert: number) {
-    const ziel = ziele.find((z) => z.id === zielId);
-    if (!ziel) return;
-    const leads = ziel.leadMeasures.map((lm) => (lm.id === leadId ? { ...lm, istwert } : lm));
-    void optimistisch(
-      setzeLeadMeasures(zielId, leads),
+    void mutiere(
+      (prev) =>
+        prev.map((z) =>
+          z.id === zielId
+            ? {
+                ...z,
+                leadMeasures: z.leadMeasures.map((lm) =>
+                  lm.id === leadId ? { ...lm, istwert } : lm,
+                ),
+              }
+            : z,
+        ),
       () => senden(`/api/lead-measures/${leadId}`, "PATCH", { istwert }),
-      ziele,
     );
   }
 
   function onLeadLoeschen(zielId: string, leadId: string) {
-    const ziel = ziele.find((z) => z.id === zielId);
-    if (!ziel) return;
-    const leads = ziel.leadMeasures.filter((lm) => lm.id !== leadId);
-    void optimistisch(
-      setzeLeadMeasures(zielId, leads),
+    void mutiere(
+      (prev) =>
+        prev.map((z) =>
+          z.id === zielId
+            ? { ...z, leadMeasures: z.leadMeasures.filter((lm) => lm.id !== leadId) }
+            : z,
+        ),
       () => senden(`/api/lead-measures/${leadId}`, "DELETE"),
-      ziele,
     );
   }
 
@@ -214,8 +242,16 @@ export function ZieleClient() {
           role="status"
           className="flex items-center gap-2 rounded-lg border border-status-gruen/40 bg-status-gruen/10 px-4 py-3 text-sm"
         >
-          <PartyPopper size={18} className="text-status-gruen" aria-hidden="true" />
-          <span>{feier}</span>
+          <PartyPopper size={18} className="text-status-gruen-text" aria-hidden="true" />
+          <span className="flex-1">{feier}</span>
+          <button
+            type="button"
+            onClick={() => setFeier(null)}
+            aria-label="Meldung schließen"
+            className="rounded-md p-1 hover:bg-muted"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
         </div>
       )}
 

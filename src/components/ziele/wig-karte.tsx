@@ -14,8 +14,17 @@ const AMPELN: { wert: Ampel; klasse: string; label: string }[] = [
   { wert: "ROT", klasse: "bg-status-rot text-white", label: "Kritisch" },
 ];
 
-export function WigKarte(props: Props) {
-  const { ziel } = props;
+export function WigKarte({
+  ziel,
+  onFortschritt,
+  onAmpel,
+  onErreicht,
+  onZurueck,
+  onArchiv,
+  onLeadAnlegen,
+  onLeadIstwert,
+  onLeadLoeschen,
+}: Props) {
   const countdown = berechneCountdown(ziel.dueDate ? new Date(ziel.dueDate) : null, new Date());
   const countdownKlasse =
     countdown.ton === "ueberfaellig" ? "text-status-rot" : "text-muted-foreground";
@@ -27,6 +36,7 @@ export function WigKarte(props: Props) {
         {ziel.abhaengig && (
           <span
             className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+            aria-label="Abhängig von Dritten"
             title="Abhängig von Dritten"
           >
             <Link2 size={12} aria-hidden="true" /> abhängig
@@ -48,7 +58,7 @@ export function WigKarte(props: Props) {
             <button
               key={a.wert}
               type="button"
-              onClick={() => props.onAmpel(ziel.id, a.wert)}
+              onClick={() => onAmpel(ziel.id, a.wert)}
               aria-pressed={aktiv}
               className={`rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
                 aktiv ? a.klasse : "bg-muted text-muted-foreground hover:bg-border"
@@ -64,12 +74,20 @@ export function WigKarte(props: Props) {
       <div className="mt-3">
         <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
           <label htmlFor={`fortschritt-${ziel.id}`}>Fortschritt</label>
-          <span className="tabular-nums font-medium text-foreground">{ziel.fortschritt}%</span>
+          <span className="font-medium tabular-nums text-foreground">{ziel.fortschritt}%</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-2 w-full overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuenow={ziel.fortschritt}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Fortschritt: ${ziel.fortschritt}%`}
+        >
           <div
             className="h-full rounded-full bg-status-gruen transition-all"
             style={{ width: `${ziel.fortschritt}%` }}
+            aria-hidden="true"
           />
         </div>
         <input
@@ -79,7 +97,7 @@ export function WigKarte(props: Props) {
           max={100}
           step={5}
           value={ziel.fortschritt}
-          onChange={(e) => props.onFortschritt(ziel.id, Math.round(Number(e.target.value)))}
+          onChange={(e) => onFortschritt(ziel.id, Math.round(Number(e.target.value)))}
           className="mt-1 w-full accent-[var(--color-accent)]"
           aria-label={`Fortschritt von ${ziel.titel} in Prozent`}
         />
@@ -92,30 +110,30 @@ export function WigKarte(props: Props) {
 
       <LeadMeasureListe
         leadMeasures={ziel.leadMeasures}
-        onAnlegen={(b, z) => props.onLeadAnlegen(ziel.id, b, z)}
-        onIstwert={(id, wert) => props.onLeadIstwert(ziel.id, id, wert)}
-        onLoeschen={(id) => props.onLeadLoeschen(ziel.id, id)}
+        onAnlegen={(b, z) => onLeadAnlegen(ziel.id, b, z)}
+        onIstwert={(id, wert) => onLeadIstwert(ziel.id, id, wert)}
+        onLoeschen={(id) => onLeadLoeschen(ziel.id, id)}
       />
 
       {/* Aktionen */}
       <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
         <button
           type="button"
-          onClick={() => props.onErreicht(ziel.id)}
+          onClick={() => onErreicht(ziel.id)}
           className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1.5 text-xs text-accent-foreground hover:opacity-90"
         >
           <CircleCheck size={14} aria-hidden="true" /> Als erreicht abschließen
         </button>
         <button
           type="button"
-          onClick={() => props.onZurueck(ziel.id)}
+          onClick={() => onZurueck(ziel.id)}
           className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs text-foreground hover:bg-muted"
         >
           <CornerDownLeft size={14} aria-hidden="true" /> Zurück ins Backlog
         </button>
         <button
           type="button"
-          onClick={() => props.onArchiv(ziel.id)}
+          onClick={() => onArchiv(ziel.id)}
           aria-label={`Ziel archivieren: ${ziel.titel}`}
           className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted"
         >

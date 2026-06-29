@@ -86,6 +86,9 @@ export function ZielAufFokusModal({ ziel, limitErreicht, onAbbrechen, onBestaeti
                   onChange={(e) => setOutcome(e.target.value)}
                   placeholder="Welcher Beitrag soll entstehen? z. B. „Standortleitungen wenden das neue Onboarding sicher an.“"
                   className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  aria-required="true"
+                  aria-invalid={fehler !== null}
+                  aria-describedby={fehler ? "outcome-fehler" : undefined}
                   autoFocus
                 />
               </div>
@@ -120,7 +123,11 @@ export function ZielAufFokusModal({ ziel, limitErreicht, onAbbrechen, onBestaeti
                 />
               </div>
 
-              {fehler && <p className="text-sm text-status-rot">{fehler}</p>}
+              {fehler && (
+                <p id="outcome-fehler" role="alert" className="text-sm text-status-rot">
+                  {fehler}
+                </p>
+              )}
 
               <div className="mt-1 flex justify-end gap-2">
                 <Dialog.Close className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted">

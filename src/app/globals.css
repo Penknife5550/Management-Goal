@@ -33,10 +33,13 @@
   --color-credo-rot: #e2001a;
   --color-credo-blau: #009ac6;
 
-  /* Ampel (Scoreboard) */
+  /* Ampel (Scoreboard) - Flaechenfarben */
   --color-status-gruen: #6baa24;
   --color-status-gelb: #fbc900;
   --color-status-rot: #e2001a;
+
+  /* Dunkleres Gruen fuer Text auf hellem Grund (WCAG AA, >= 4.5:1) */
+  --color-status-gruen-text: #3f6b16;
 
   --radius-lg: 0.75rem;
   --radius-md: 0.5rem;

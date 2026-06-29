@@ -6,7 +6,7 @@ import type { LeadMeasureDTO } from "@/lib/types";
 
 interface Props {
   leadMeasures: LeadMeasureDTO[];
-  onAnlegen: (beschreibung: string, zielwert: number) => void;
+  onAnlegen: (beschreibung: string, zielwert: number) => Promise<void> | void;
   onIstwert: (id: string, istwert: number) => void;
   onLoeschen: (id: string) => void;
 }
@@ -16,15 +16,21 @@ export function LeadMeasureListe({ leadMeasures, onAnlegen, onIstwert, onLoesche
   const [beschreibung, setBeschreibung] = useState("");
   const [zielwert, setZielwert] = useState("5");
   const [formOffen, setFormOffen] = useState(false);
+  const [wirdGesendet, setWirdGesendet] = useState(false);
 
-  function absenden(event: React.FormEvent) {
+  async function absenden(event: React.FormEvent) {
     event.preventDefault();
     const ziel = Number.parseInt(zielwert, 10);
-    if (beschreibung.trim().length === 0 || Number.isNaN(ziel) || ziel < 1) return;
-    onAnlegen(beschreibung.trim(), ziel);
-    setBeschreibung("");
-    setZielwert("5");
-    setFormOffen(false);
+    if (beschreibung.trim().length === 0 || Number.isNaN(ziel) || ziel < 1 || wirdGesendet) return;
+    setWirdGesendet(true);
+    try {
+      await onAnlegen(beschreibung.trim(), ziel);
+      setBeschreibung("");
+      setZielwert("5");
+      setFormOffen(false);
+    } finally {
+      setWirdGesendet(false);
+    }
   }
 
   return (
@@ -46,7 +52,7 @@ export function LeadMeasureListe({ leadMeasures, onAnlegen, onIstwert, onLoesche
                 {lm.beschreibung}
               </span>
               <span
-                className={`tabular-nums text-xs ${erfuellt ? "text-status-gruen" : "text-muted-foreground"}`}
+                className={`text-xs tabular-nums ${erfuellt ? "text-status-gruen-text" : "text-muted-foreground"}`}
               >
                 {lm.istwert}/{lm.zielwert}
               </span>
@@ -97,9 +103,17 @@ export function LeadMeasureListe({ leadMeasures, onAnlegen, onIstwert, onLoesche
           />
           <button
             type="submit"
-            className="rounded-md bg-accent px-2.5 py-1.5 text-sm text-accent-foreground"
+            disabled={wirdGesendet}
+            className="rounded-md bg-accent px-2.5 py-1.5 text-sm text-accent-foreground disabled:opacity-50"
           >
             Hinzufügen
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormOffen(false)}
+            className="rounded-md border border-border px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-muted"
+          >
+            Abbrechen
           </button>
         </form>
       ) : (
