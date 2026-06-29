@@ -4,9 +4,10 @@
 // Outcome-Pflicht, Countdown-Pacing.
 // ============================================================
 import { describe, expect, it } from "vitest";
-import { WIG_LIMIT } from "../../src/lib/constants";
+import { COUNTDOWN_WARN_TAGE, WIG_LIMIT } from "../../src/lib/constants";
 import {
   berechneCountdown,
+  entscheideZielAenderung,
   istStatusUebergangErlaubt,
   outcomePflichtErfuellt,
   pruefeFokusHebung,
@@ -103,5 +104,51 @@ describe("berechneCountdown (Pacing, keine Drohuhr)", () => {
     const info = berechneCountdown(new Date("2026-06-18T10:00:00Z"), jetzt);
     expect(info.ton).toBe("ueberfaellig");
     expect(info.tageVerbleibend).toBe(-3);
+  });
+
+  it("exakt an der Warnschwelle -> warnung, einen Tag danach -> neutral", () => {
+    const grenze = new Date(jetzt);
+    grenze.setUTCDate(grenze.getUTCDate() + COUNTDOWN_WARN_TAGE);
+    expect(berechneCountdown(grenze, jetzt).ton).toBe("warnung");
+
+    const danach = new Date(jetzt);
+    danach.setUTCDate(danach.getUTCDate() + COUNTDOWN_WARN_TAGE + 1);
+    expect(berechneCountdown(danach, jetzt).ton).toBe("neutral");
+  });
+});
+
+describe("entscheideZielAenderung (HTTP-Semantik 409/400)", () => {
+  it("unerlaubter Status-Uebergang -> 409", () => {
+    const e = entscheideZielAenderung("BACKLOG", "ERREICHT", null, 0);
+    expect(e.ok).toBe(false);
+    expect(e.status).toBe(409);
+  });
+
+  it("Heben auf FOKUS am WIG-Limit -> 409", () => {
+    const e = entscheideZielAenderung("BACKLOG", "FOKUS", "Outcome", WIG_LIMIT);
+    expect(e.ok).toBe(false);
+    expect(e.status).toBe(409);
+  });
+
+  it("Heben auf FOKUS ohne Outcome -> 409", () => {
+    const e = entscheideZielAenderung("BACKLOG", "FOKUS", "", 0);
+    expect(e.ok).toBe(false);
+    expect(e.status).toBe(409);
+  });
+
+  it("bereits FOKUS, Outcome wird geleert -> 400", () => {
+    const e = entscheideZielAenderung("FOKUS", "FOKUS", "", 1);
+    expect(e.ok).toBe(false);
+    expect(e.status).toBe(400);
+  });
+
+  it("erlaubte Hebung mit Outcome unter Limit -> ok", () => {
+    const e = entscheideZielAenderung("BACKLOG", "FOKUS", "Klares Outcome", WIG_LIMIT - 1);
+    expect(e.ok).toBe(true);
+  });
+
+  it("Fortschritt-Update an einem FOKUS-Ziel mit Outcome -> ok", () => {
+    const e = entscheideZielAenderung("FOKUS", "FOKUS", "Outcome", 1);
+    expect(e.ok).toBe(true);
   });
 });
