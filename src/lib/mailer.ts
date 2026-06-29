@@ -92,6 +92,12 @@ function renderRecipientField(field: string, vars: Record<string, string>): stri
 // =============================================
 // SMTP-Transporter aus der DB-Config (oder Dry-Run im Dev)
 // =============================================
+// Wiederverwendbarer Transporter je Konfiguration: pool=true haelt SMTP-Verbindungen
+// offen, sodass beim Batch-Versand (Wochen-Reminder) nicht pro Mail ein neuer
+// TLS-Handshake noetig ist. Cache ueber Versand-/Request-Grenzen hinweg; aendert
+// sich die Konfiguration, wechselt der Signatur-Key und der alte Pool wird geschlossen.
+let transporterCache: { signatur: string; transporter: nodemailer.Transporter } | null = null;
+
 async function createTransporter(): Promise<{
   transporter: nodemailer.Transporter;
   from: string;
@@ -103,28 +109,35 @@ async function createTransporter(): Promise<{
 
   const from = `"${config.fromName}" <${config.fromEmail}>`;
 
-  // Dev-Schutz: kein echter Versand, Inhalt landet als JSON im Server-Log.
+  // Dev-Schutz: kein echter Versand, Inhalt landet als JSON im Server-Log (kein Pool noetig).
   if (process.env.MAIL_DRY_RUN === "1") {
     return { transporter: nodemailer.createTransport({ jsonTransport: true }), from };
   }
 
-  return {
-    transporter: nodemailer.createTransport({
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      auth: {
-        user: config.username,
-        pass: isEncryptionConfigured() ? decrypt(config.password) : config.password,
-      },
-      tls: { rejectUnauthorized: process.env.NODE_ENV === "production" },
-      // Harte Timeouts: ein haengender SMTP-Server darf Request-Pfade nicht blockieren.
-      connectionTimeout: 10_000,
-      greetingTimeout: 10_000,
-      socketTimeout: 20_000,
-    }),
-    from,
-  };
+  const signatur = [config.host, config.port, config.secure, config.username, config.password].join("|");
+  if (transporterCache?.signatur !== signatur) {
+    transporterCache?.transporter.close();
+    transporterCache = {
+      signatur,
+      transporter: nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: {
+          user: config.username,
+          pass: isEncryptionConfigured() ? decrypt(config.password) : config.password,
+        },
+        tls: { rejectUnauthorized: process.env.NODE_ENV === "production" },
+        pool: true,
+        maxConnections: 3,
+        // Harte Timeouts: ein haengender SMTP-Server darf Request-Pfade nicht blockieren.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
+      }),
+    };
+  }
+  return { transporter: transporterCache.transporter, from };
 }
 
 // =============================================

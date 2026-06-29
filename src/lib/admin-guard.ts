@@ -12,33 +12,31 @@ import { timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
 import { jsonError } from "@/lib/api";
 
-// Liefert null wenn berechtigt, sonst eine fertige Fehlerantwort.
-export function requireAdminToken(request: NextRequest): ReturnType<typeof jsonError> | null {
-  const expected = process.env.ADMIN_TOKEN ?? "";
-  if (!expected) {
-    return jsonError("ADMIN_TOKEN ist nicht konfiguriert — Endpunkt gesperrt.", 500);
-  }
-  const got = request.headers.get("x-admin-token") ?? "";
+// Laengen-sicherer Konstantzeit-Vergleich (timingSafeEqual wirft bei ungleicher Laenge).
+function vergleicheSecret(got: string, expected: string): boolean {
   const a = Buffer.from(got);
   const b = Buffer.from(expected);
-  const ok = a.length === b.length && timingSafeEqual(a, b);
-  if (!ok) return jsonError("Keine Berechtigung.", 403);
-  return null;
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
-// Cron-Route: Authorization: Bearer <CRON_SECRET>
+// Prueft ein Secret aus dem Request gegen eine ENV-Variable. Liefert null wenn
+// berechtigt, sonst eine fertige Fehlerantwort (500 = ENV fehlt, 403 = falsch).
+function pruefeSecret(envName: string, got: string): ReturnType<typeof jsonError> | null {
+  const expected = process.env[envName] ?? "";
+  if (!expected) return jsonError(`${envName} ist nicht konfiguriert — Endpunkt gesperrt.`, 500);
+  return vergleicheSecret(got, expected) ? null : jsonError("Keine Berechtigung.", 403);
+}
+
+// Einstellungs-/Test-Routen: Header "x-admin-token" == ADMIN_TOKEN.
+export function requireAdminToken(request: NextRequest): ReturnType<typeof jsonError> | null {
+  return pruefeSecret("ADMIN_TOKEN", request.headers.get("x-admin-token") ?? "");
+}
+
+// Cron-Route: Authorization: Bearer <CRON_SECRET>.
 export function requireCronSecret(request: NextRequest): ReturnType<typeof jsonError> | null {
-  const expected = process.env.CRON_SECRET ?? "";
-  if (!expected) {
-    return jsonError("CRON_SECRET ist nicht konfiguriert — Endpunkt gesperrt.", 500);
-  }
   const header = request.headers.get("authorization") ?? "";
   const got = header.startsWith("Bearer ") ? header.slice(7) : "";
-  const a = Buffer.from(got);
-  const b = Buffer.from(expected);
-  const ok = a.length === b.length && timingSafeEqual(a, b);
-  if (!ok) return jsonError("Keine Berechtigung.", 403);
-  return null;
+  return pruefeSecret("CRON_SECRET", got);
 }
 
 // =============================================

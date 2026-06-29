@@ -11,9 +11,20 @@ export async function GET(request: NextRequest) {
   const verweigert = requireAdminToken(request);
   if (verweigert) return verweigert;
   try {
+    // Nur die im Protokoll angezeigten Felder ausliefern (kein Leak von messageId/cc/bcc).
     const logs = await prisma.emailLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 100,
+      select: {
+        id: true,
+        event: true,
+        recipient: true,
+        subject: true,
+        status: true,
+        detail: true,
+        isTest: true,
+        createdAt: true,
+      },
     });
     return jsonOk(logs);
   } catch (fehler) {

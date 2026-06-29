@@ -138,6 +138,18 @@ Trigger: Host-Cron (Europe/Berlin), z. B. `0 8 * * 1`, ruft `/api/cron/reminders
 - Offen (Backlog, kein Blocker): Perf-Skalierung (N+1/Pool/Index), `einstellungen-client.tsx` aufteilen,
   Token-Guards DRY, A11y (ARIA-Tabs/aria-live/Grün-Kontrast), EmailLog-Retention.
 
+**Aufräum-Sprint (Commit nach 68e4968)** — Review-Backlog M4–M7 abgearbeitet:
+- M4 Perf: SMTP-Transporter wird gepoolt (signatur-basierter Cache, `pool:true`) statt pro Mail neu.
+- M5 Wartbarkeit: `einstellungen-client.tsx` in Shell + `shared.tsx` (Typen/UI/`useAdminAction`-Hook)
+  + je Tab eine Datei (smtp/vorlagen/protokoll) + token-gate/reminder-switch aufgeteilt.
+- M6: Token-Guards über gemeinsamen `vergleicheSecret`/`pruefeSecret`-Helper entdoppelt.
+- M7 A11y: irreführende ARIA-Tab-Rollen entfernt, `aria-live` an Banner, Grün-Kontrast (dunkleres Grün),
+  Testversand mit Lade-Status, `type="email"`/Labels an Test-Inputs, deutsche Status-Labels.
+- MINOR: `encryption.ts` gehärtet (Key exakt 64, Entschlüsselungs-Fehler werfen statt Klartext),
+  `email-log` liefert nur Anzeigefelder, Import-Pfade auf `@/`-Alias.
+- Tests: +11 (Encryption-Roundtrip/Mismatch, Validierung) → 57/57 grün.
+- Echter Rest-Backlog: EmailLog-Retention/DSGVO; In-Memory-Rate-Limiter zentralisieren (Multi-Instanz).
+
 **Bewusste Grenzen / offene Punkte**
 - **Admin-Guard ist ein Übergang**: `ADMIN_TOKEN`-Header statt RBAC. In Phase 4 ersetzen.
 - **Pro-User-Reminder-Schalter** existiert als Feld, aber noch ohne eigene Profil-UI (Phase 4).

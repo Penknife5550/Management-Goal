@@ -5,7 +5,7 @@
 // CREDO-CI: Dunkelgrau #575756, KEINE Farbverlaeufe, Arial (Mail-Fallback).
 // Variablen {{schluessel}} werden beim Versand ersetzt und HTML-escaped.
 // ============================================================
-import { EVENT_CATALOG } from "./email-events";
+import { EVENT_CATALOG } from "@/lib/email-events";
 
 export interface EmailTemplateDefinition {
   event: string;

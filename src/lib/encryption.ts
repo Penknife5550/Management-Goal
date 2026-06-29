@@ -18,9 +18,9 @@ function getEncryptionKey(): Buffer {
   const cached = keyCache.get(keyHex);
   if (cached) return cached;
 
-  if (keyHex.length < 64) {
+  if (keyHex.length !== 64) {
     throw new Error(
-      "ENCRYPTION_KEY muss ein 64-stelliger Hex-String (32 Bytes) sein. " +
+      "ENCRYPTION_KEY muss ein exakt 64-stelliger Hex-String (32 Bytes) sein. " +
         "Generieren mit: openssl rand -hex 32",
     );
   }
@@ -58,8 +58,10 @@ export function decrypt(encryptedText: string): string {
     decipher.setAuthTag(authTag);
     return decipher.update(encrypted).toString("utf8") + decipher.final("utf8");
   } catch {
-    console.warn("[encryption] Entschluesselung fehlgeschlagen — moeglicherweise Altdaten.");
-    return encryptedText;
+    // Struktur passte (iv:tag:data, korrekte Laengen), aber Entschluesselung schlug
+    // fehl -> kein Altdaten-Klartext, sondern Schluessel-Mismatch/Manipulation.
+    // NICHT den Ciphertext als Klartext zurueckgeben (sonst stiller SMTP-Auth-Fehler).
+    throw new Error("Entschluesselung fehlgeschlagen — ENCRYPTION_KEY passt nicht zum gespeicherten Wert.");
   }
 }
 
