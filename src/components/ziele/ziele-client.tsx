@@ -72,6 +72,7 @@ export function ZieleClient() {
       fortschritt: 0,
       dueDate: null,
       abhaengig: false,
+      lastCheckinAt: null,
       leadMeasures: [],
       createdAt: new Date().toISOString(),
     };

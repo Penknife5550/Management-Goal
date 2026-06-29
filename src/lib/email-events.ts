@@ -36,7 +36,7 @@ export const EVENT_CATALOG: EventDefinition[] = [
       name: "Test Fuehrungskraft",
       anzahl: 2,
       wigListe: "Onboarding-Prozess verschlanken, Kita-Belegung optimieren",
-      link: "http://localhost:3000/ziele",
+      link: "http://localhost:3000/check-in",
     },
   },
 ];

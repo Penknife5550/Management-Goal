@@ -13,3 +13,8 @@ export const TEST_RECHTSEINHEIT_ID = "test-rechtseinheit-verwaltung";
 
 // Schwelle, ab der der Countdown sanft hervorgehoben wird (Pacing, keine Drohuhr).
 export const COUNTDOWN_WARN_TAGE = 7;
+
+// Eine WIG gilt als "faellig" fuer den Wochen-Check-in, wenn ihr letzter Check-in
+// (ersatzweise die Anlage) so viele Tage zurueckliegt. Einzige Quelle fuer UI
+// (Stale-Badge) und Server (Reminder-Auswahl).
+export const CHECKIN_FAELLIG_TAGE = 7;

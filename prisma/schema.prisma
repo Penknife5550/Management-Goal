@@ -94,6 +94,7 @@ model Goal {
   tasks        Task[]
   leadMeasures LeadMeasure[]
   learningLog  LearningLog?
+  checkIns     CheckIn[]
 
   // KI-Anreicherung: Felder vorgesehen, in diesem Slice NICHT verdrahtet
   aiVorschlag  Json?
@@ -234,6 +235,25 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 
   @@map("app_setting")
+}
+
+// Check-in-Historie: pro Wochen-Check-in EIN Snapshot je WIG (Ampel + Fortschritt
+// zum Zeitpunkt des Check-ins). sessionId gruppiert die WIGs eines Durchlaufs;
+// so lassen sich sowohl Sessions ("wann eingecheckt") als auch Trends je WIG
+// ("Ampel-Verlauf") auswerten (Adoptions-KPIs, Phase 3).
+model CheckIn {
+  id          String   @id @default(cuid())
+  sessionId   String // gruppiert die WIGs eines Durchlaufs
+  ownerId     String
+  goalId      String
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  ampel       Ampel
+  fortschritt Int
+  createdAt   DateTime @default(now())
+
+  @@index([goalId, createdAt])
+  @@index([ownerId, sessionId])
+  @@map("check_in")
 }
 
 // Reservierung je Empfaenger/Event/Periode — macht den Reminder-Versand

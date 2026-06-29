@@ -47,6 +47,7 @@ export function toZielDTO(goal: GoalMitLeads): ZielDTO {
     fortschritt: goal.fortschritt,
     dueDate: goal.dueDate ? goal.dueDate.toISOString() : null,
     abhaengig: goal.abhaengig,
+    lastCheckinAt: goal.lastCheckinAt ? goal.lastCheckinAt.toISOString() : null,
     leadMeasures: goal.leadMeasures.map(toLeadMeasureDTO),
     createdAt: goal.createdAt.toISOString(),
   };

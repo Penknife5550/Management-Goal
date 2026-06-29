@@ -21,6 +21,7 @@ export interface ZielDTO {
   fortschritt: number;
   dueDate: string | null;
   abhaengig: boolean;
+  lastCheckinAt: string | null;
   leadMeasures: LeadMeasureDTO[];
   createdAt: string;
 }

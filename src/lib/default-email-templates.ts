@@ -57,10 +57,10 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplateDefinition[] = [
         "Du hast {{anzahl}} wirklich wichtige(s) Ziel(e) (WIG), die seit ueber einer Woche keinen Check-in hatten:<br /><br />" +
         "<strong>{{wigListe}}</strong><br /><br />" +
         "Nimm dir kurz Zeit: Ampel setzen, Fortschritt pruefen, naechsten Schritt festlegen.",
-      cta: "Zum Ziel-Cockpit",
+      cta: "Wochen-Check-in starten",
     }),
     bodyText:
-      "Hallo {{name}},\n\nZeit fuer deinen Wochen-Check-in. {{anzahl}} WIG(s) ohne Check-in seit ueber einer Woche:\n{{wigListe}}\n\nZum Ziel-Cockpit: {{link}}\n\nErinnerungen kannst du in deinen Einstellungen abschalten.",
+      "Hallo {{name}},\n\nZeit fuer deinen Wochen-Check-in. {{anzahl}} WIG(s) ohne Check-in seit ueber einer Woche:\n{{wigListe}}\n\nWochen-Check-in starten: {{link}}\n\nErinnerungen kannst du in deinen Einstellungen abschalten.",
     variables: EVENT_CATALOG.find((e) => e.event === "weekly-checkin-reminder")!.variables,
   },
 ];

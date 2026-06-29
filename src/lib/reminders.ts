@@ -11,10 +11,12 @@
 //             Den eigentlichen Versandzeitpunkt steuert der Host-Cron (Europe/Berlin).
 // ============================================================
 import { Prisma } from "@prisma/client";
+import { CHECKIN_FAELLIG_TAGE } from "@/lib/constants";
 import { prisma } from "@/lib/db";
 import { sendEventEmail } from "@/lib/mailer";
 
-export const STALE_TAGE = 7;
+// Einzige Quelle der Schwelle (geteilt mit der UI, siehe lib/check-in.ts).
+export const STALE_TAGE = CHECKIN_FAELLIG_TAGE;
 const TAG_MS = 24 * 60 * 60 * 1000;
 const REMINDER_EVENT = "weekly-checkin-reminder";
 const SWITCH_KEY = "remindersGloballyEnabled";
@@ -151,7 +153,7 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
       name: b.name,
       anzahl: b.titel.length,
       wigListe: b.titel.join(", "),
-      link: `${appUrl}/ziele`,
+      link: `${appUrl}/check-in`,
     });
     if (ergebnis.status === "SENT") versendet++;
     else fehlgeschlagen++;

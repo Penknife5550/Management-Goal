@@ -48,6 +48,28 @@ export const leadMeasureUpdateSchema = z
   })
   .strict();
 
+// Wochen-Check-in: pro WIG Ampel/Fortschritt + aktualisierte Lead-Istwerte.
+export const checkInSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        goalId: z.string().min(1),
+        ampel: z.enum(AMPEL),
+        fortschritt: z
+          .number()
+          .int("Fortschritt muss eine ganze Zahl sein")
+          .min(0, "Fortschritt muss zwischen 0 und 100 liegen")
+          .max(100, "Fortschritt muss zwischen 0 und 100 liegen"),
+        leads: z
+          .array(z.object({ id: z.string().min(1), istwert: z.number().int().min(0) }))
+          .default([]),
+      }),
+    )
+    .min(1, "Mindestens eine WIG erforderlich"),
+});
+
+export type CheckInInput = z.infer<typeof checkInSchema>;
+
 export type GoalQuickAddInput = z.infer<typeof goalQuickAddSchema>;
 export type GoalUpdateInput = z.infer<typeof goalUpdateSchema>;
 export type LeadMeasureCreateInput = z.infer<typeof leadMeasureCreateSchema>;

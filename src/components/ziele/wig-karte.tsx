@@ -1,6 +1,7 @@
 "use client";
 
-import { Archive, CalendarClock, CircleCheck, CornerDownLeft, Link2 } from "lucide-react";
+import { Archive, CalendarClock, CircleCheck, CornerDownLeft, History, Link2 } from "lucide-react";
+import { istCheckinFaellig, tageSeitCheckin } from "@/lib/check-in";
 import type { Ampel } from "@/lib/goals";
 import { berechneCountdown } from "@/lib/goals";
 import type { ZielAktionen, ZielDTO } from "@/lib/types";
@@ -25,9 +26,12 @@ export function WigKarte({
   onLeadIstwert,
   onLeadLoeschen,
 }: Props) {
-  const countdown = berechneCountdown(ziel.dueDate ? new Date(ziel.dueDate) : null, new Date());
+  const jetzt = new Date();
+  const countdown = berechneCountdown(ziel.dueDate ? new Date(ziel.dueDate) : null, jetzt);
   const countdownKlasse =
     countdown.ton === "ueberfaellig" ? "text-status-rot" : "text-muted-foreground";
+  const checkinFaellig = istCheckinFaellig(ziel.lastCheckinAt, ziel.createdAt, jetzt);
+  const tageSeit = tageSeitCheckin(ziel.lastCheckinAt, ziel.createdAt, jetzt);
 
   return (
     <article className="rounded-lg border border-border bg-card p-4">
@@ -47,6 +51,13 @@ export function WigKarte({
       {ziel.outcome && (
         <p className="mt-1 text-xs text-muted-foreground">
           <span className="font-medium">Outcome:</span> {ziel.outcome}
+        </p>
+      )}
+
+      {/* Stale-Markierung: seit > 7 Tagen kein Wochen-Check-in */}
+      {checkinFaellig && (
+        <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-status-gelb/20 px-2 py-0.5 text-xs text-foreground">
+          <History size={12} aria-hidden="true" /> seit {tageSeit} Tagen kein Check-in
         </p>
       )}
 

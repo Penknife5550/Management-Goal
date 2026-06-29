@@ -1,4 +1,4 @@
-import { Settings } from "lucide-react";
+import { CalendarCheck, Settings } from "lucide-react";
 import Link from "next/link";
 import { ZieleClient } from "@/components/ziele/ziele-client";
 
@@ -9,14 +9,23 @@ export default function ZielePage() {
       <header className="mb-6">
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-xl font-medium">Strategische Ziele</h1>
-          <Link
-            href="/einstellungen"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-            aria-label="Einstellungen"
-          >
-            <Settings className="h-4 w-4" />
-            Einstellungen
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/check-in"
+              className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
+            >
+              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+              Wochen-Check-in
+            </Link>
+            <Link
+              href="/einstellungen"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+              aria-label="Einstellungen"
+            >
+              <Settings className="h-4 w-4" />
+              Einstellungen
+            </Link>
+          </div>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Sammle Ideen im Backlog – arbeite an 1–3 wirklich wichtigen Zielen (WIGs).

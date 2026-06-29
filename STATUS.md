@@ -91,6 +91,7 @@ Macht aus dem Board ein täglich/wöchentlich genutztes Werkzeug (Adoption-Treib
 
 1. **Geführter Wochen-Check-in** (Herzstück): ≤20-Min-Flow, der durch jede aktive WIG führt
    (Ampel setzen, Fortschritt, nächste Lead-Measure-Schritte). „stale"-Markierung >7 Tage.
+   → **gebaut** (siehe Abschnitt 9).
 2. **Benachrichtigungen**: In-App-Center + E-Mail über **eigenes SMTP** (nicht n8n —
    bleibt flexibel, Pattern aus dem HR-Portal übernommen), nutzergesteuert (Frequenz, DND,
    Batching), kein Spam. Erinnerung an Wochen-Check-in.
@@ -160,3 +161,24 @@ Trigger: Host-Cron (Europe/Berlin), z. B. `0 8 * * 1`, ruft `/api/cron/reminders
 
 **Verifiziert**: `tsc` sauber · Unit-Tests **33/33** grün (inkl. 10 neue Reminder-Tests)
 · Migration angewandt. Offen: Production-Build-Re-Run und manueller Test-Versand mit echtem SMTP.
+
+## 9. Phase 2 — Geführter Wochen-Check-in (gebaut)
+
+Das 4DX-Kadenzritual, das den Reminder-Kreis schließt. Migration: `check_in_historie`.
+
+**Neue Bausteine**
+- DB: `CheckIn` (Snapshot je WIG pro Session: `sessionId/ownerId/goalId/ampel/fortschritt`,
+  Indizes für Trends/Sessions); `Goal.lastCheckinAt` wird jetzt geschrieben; `lastCheckinAt` im DTO.
+- Domäne: `lib/check-in.ts` (`tageSeitCheckin`, `istCheckinFaellig`); Schwelle zentral als
+  `CHECKIN_FAELLIG_TAGE` in constants (eine Quelle, auch vom Reminder genutzt → `STALE_TAGE`).
+- API: `POST /api/check-in` — eine Transaktion: je WIG Ampel/Fortschritt + Lead-Istwerte +
+  `lastCheckinAt=now` + History-Snapshot (sessionId). Owner-/FOKUS-Scope erzwungen.
+- UI: Seite `/check-in` + Stepper (`check-in-client.tsx`): WIG für WIG, vorausgefüllt, Abschluss-
+  Moment (Peak-End). Einstieg-Button auf `/ziele`. **Stale-Badge** auf WIG-Karten (>7 Tage).
+- Reminder-CTA zeigt jetzt auf `/check-in` (Template-HTML+Text, Cron-Link, Sample-Payload).
+
+**Verifiziert**: `tsc` sauber · Tests **63/63** (+6 Check-in) · Build grün · Runtime-Smoke:
+Check-in setzt Ampel/Fortschritt/Lead + `lastCheckinAt` + 1 Snapshot; Scope & Validierung → 400.
+
+**Nächste Phase-2-Bausteine** (offen): Q2-Schutz (Zeitblock) · Small-Wins/Progress-Feedback ·
+erstes KI-Feature (Eisenhower-Vorschlag, Accept/Reject).
