@@ -1,3 +1,5 @@
+import { Settings } from "lucide-react";
+import Link from "next/link";
 import { ZieleClient } from "@/components/ziele/ziele-client";
 
 // Strategische Ebene: Ziel-Backlog + aktive WIGs (Scoreboard).
@@ -5,7 +7,17 @@ export default function ZielePage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6">
-        <h1 className="text-xl font-medium">Strategische Ziele</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-xl font-medium">Strategische Ziele</h1>
+          <Link
+            href="/einstellungen"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            aria-label="Einstellungen"
+          >
+            <Settings className="h-4 w-4" />
+            Einstellungen
+          </Link>
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Sammle Ideen im Backlog – arbeite an 1–3 wirklich wichtigen Zielen (WIGs).
         </p>

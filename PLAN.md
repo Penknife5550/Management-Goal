@@ -26,8 +26,9 @@ React Hook Form + Zod · JWT + Magic Links · @dnd-kit (Kanban/Matrix) · n8n + 
 - `app` — Next.js, `output: "standalone"` (schlankes Image, Multi-Stage-Build)
 - `db` — PostgreSQL 16 (Volume für Persistenz)
 - `proxy` — Caddy oder Traefik (HTTPS/Let's Encrypt, Reverse-Proxy)
-- n8n + Ollama laufen extern (bestehende CREDO-Instanzen) → nur via Netzwerk/Webhook angebunden
-- `.env` für `DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, `N8N_WEBHOOK_URL`, `N8N_SERVICE_KEY`, `OLLAMA_URL`
+- n8n + Ollama laufen extern (bestehende CREDO-Instanzen) → nur via Netzwerk/Webhook angebunden (KI-Tiefe, Phase 6)
+- E-Mail-Versand läuft über **eigenes SMTP** (Phase 2, lib/mailer.ts), nicht über n8n
+- `.env` für `DATABASE_URL`, `JWT_SECRET`, `ENCRYPTION_KEY`, `ADMIN_TOKEN`, `CRON_SECRET`, `APP_URL`, `OLLAMA_URL` (n8n erst Phase 6)
 
 ## 2. Datenmodell (Prisma-Skizze)
 
@@ -209,7 +210,7 @@ Durchsetzung: serverseitiger Scope-Check pro Request (Auth → Rolle → Rechtse
 
 **Phase 2 — Cadence + Delight + erstes KI-Feature** → *verify: Wochen-Erinnerung führt durch Review; KI schlägt Eisenhower-Quadrant vor (staged)*
 - **Geführter Wochen-Check-in** (≤20 Min Ritual: je WIG Ampel/Fortschritt/nächste Lead Measures)
-- Notifications (In-App-Center + E-Mail via n8n), **nutzergesteuert**, Batching/DND, kein Spam
+- Notifications (In-App-Center + **E-Mail via eigenes SMTP**, nicht n8n), **nutzergesteuert**, Batching/DND, kein Spam
 - Q2-Schutz als Zeitblock-Funktion · **Small-Wins/Progress-Feedback** (Amabile) beim Abschluss
 - Erstes KI-Feature: Eisenhower-Vorschlag im **Accept/Reject-Pattern** mit Confidence
 

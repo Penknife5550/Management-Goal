@@ -91,8 +91,10 @@ Macht aus dem Board ein täglich/wöchentlich genutztes Werkzeug (Adoption-Treib
 
 1. **Geführter Wochen-Check-in** (Herzstück): ≤20-Min-Flow, der durch jede aktive WIG führt
    (Ampel setzen, Fortschritt, nächste Lead-Measure-Schritte). „stale"-Markierung >7 Tage.
-2. **Benachrichtigungen**: In-App-Center + E-Mail via n8n, nutzergesteuert (Frequenz, DND,
+2. **Benachrichtigungen**: In-App-Center + E-Mail über **eigenes SMTP** (nicht n8n —
+   bleibt flexibel, Pattern aus dem HR-Portal übernommen), nutzergesteuert (Frequenz, DND,
    Batching), kein Spam. Erinnerung an Wochen-Check-in.
+   → **SMTP-Fundament + Wochen-Reminder bereits gebaut** (siehe Abschnitt 8).
 3. **Q2-Schutz**: Funktion, um „wichtig, nicht dringend"-Zeit aktiv zu blocken.
 4. **Small-Wins / Progress-Feedback** (Amabile): sichtbares Feiern kleiner Fortschritte.
 5. **Erstes KI-Feature: Eisenhower-Vorschlag** im Accept/Reject-Muster mit sichtbarer
@@ -101,3 +103,37 @@ Macht aus dem Board ein täglich/wöchentlich genutztes Werkzeug (Adoption-Treib
 
 Grundlagen/Begründung: [PLAN.md](PLAN.md), [RECHERCHE-fuehrungs-cockpit.md](RECHERCHE-fuehrungs-cockpit.md),
 [BEWERTUNG-plan-adoption.md](BEWERTUNG-plan-adoption.md).
+
+## 8. Phase 2 — SMTP-Mailer + Wochen-Reminder (gebaut)
+
+Eigener SMTP-Versand statt n8n (Pattern aus dem HR-Portal, auf das Cockpit eingedampft).
+Migration: `20260629143848_mail_smtp_phase2`.
+
+**Neue Bausteine**
+- DB-Modelle: `SmtpConfig` (Singleton, Passwort AES-256-GCM), `EmailTemplate` (editierbar je Event),
+  `EmailLog` (Versandprotokoll), `AppSetting` (globaler Reminder-Kill-Switch).
+  Felder: `User.emailRemindersEnabled` (Pro-User-Consent), `Goal.lastCheckinAt` (Reminder-Signal).
+- Libs: `encryption.ts`, `mailer.ts`, `email-events.ts`, `default-email-templates.ts`,
+  `reminders.ts` (Auswahl + Dispatch), `admin-guard.ts` (Token + Rate-Limit + Cron-Secret).
+- API: `/api/settings/smtp` (+`/test`), `/api/settings/email-templates` (+`/test`),
+  `/api/settings/email-log`, `/api/settings/reminders`, `/api/cron/reminders`.
+- UI: `/einstellungen` (Tabs SMTP · Vorlagen · Protokoll · Reminder-Switch), Token-Gate.
+
+**Neue ENV** (siehe `.env.example`): `ENCRYPTION_KEY`, `ADMIN_TOKEN`, `CRON_SECRET`,
+`APP_URL`, `MAIL_DRY_RUN` (Dev: "1" = kein echter Versand).
+
+**Reminder-Logik**: FOKUS-WIG ohne Check-in > 7 Tage → eine gebündelte Mail je Owner
+(Consent + globaler Switch respektiert), CTA auf `/ziele`. Idempotenz über 20-h-Lookback.
+Trigger: Host-Cron (Europe/Berlin), z. B. `0 8 * * 1`, ruft `/api/cron/reminders` mit
+`Authorization: Bearer $CRON_SECRET`.
+
+**Bewusste Grenzen / offene Punkte**
+- **Admin-Guard ist ein Übergang**: `ADMIN_TOKEN`-Header statt RBAC. In Phase 4 ersetzen.
+- **Pro-User-Reminder-Schalter** existiert als Feld, aber noch ohne eigene Profil-UI (Phase 4).
+- **Variablen werden im HTML-Body escaped** (Injection-Schutz).
+- **Deliverability offen**: Welcher echte SMTP-Relay? SPF/DKIM/DMARC der Absender-Domain
+  müssen passen, sonst landen Mails im Spam. → mit IT klären.
+- **EmailLog-Retention** (personenbezogene Empfänger) noch ohne Löschkonzept.
+
+**Verifiziert**: `tsc` sauber · Unit-Tests **33/33** grün (inkl. 10 neue Reminder-Tests)
+· Migration angewandt. Offen: Production-Build-Re-Run und manueller Test-Versand mit echtem SMTP.

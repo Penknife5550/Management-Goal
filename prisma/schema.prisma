@@ -56,6 +56,10 @@ model User {
   goals     Goal[]   @relation("Owner")
   createdAt DateTime @default(now())
 
+  // Consent fuer Reminder-Mails (Phase 2: nutzergesteuert, kein Spam).
+  // Pro-User-Schalter; eine eigene Profil-UI folgt mit der Nutzerverwaltung (Phase 4).
+  emailRemindersEnabled Boolean @default(true)
+
   @@map("user")
 }
 
@@ -68,6 +72,11 @@ model Goal {
   fortschritt Int        @default(0) // Lag-Gesamtfortschritt 0-100
   dueDate     DateTime?
   abhaengig   Boolean    @default(false) // Hebel-Tag: selbst umsetzbar vs. abhaengig
+
+  // Zeitpunkt des letzten Wochen-Check-ins. Ehrliches Signal fuer die
+  // Reminder-Logik (FOKUS-WIG ohne Check-in > 7 Tage). null = noch nie;
+  // dann gilt createdAt als Bezugspunkt (siehe lib/reminders.ts).
+  lastCheckinAt DateTime?
 
   // Scope ab Tag 1
   ownerId         String
@@ -148,4 +157,81 @@ model Task {
 
   @@index([goalId, status])
   @@map("task")
+}
+
+// ============================================================
+// Mail / Notifications (Phase 2) — eigener SMTP-Versand statt n8n.
+// Pattern uebernommen aus dem CREDO HR-Portal, auf das Cockpit eingedampft.
+// ============================================================
+
+// SMTP-Konfiguration als Singleton (id = "default").
+// Passwort liegt AES-256-GCM-verschluesselt (lib/encryption.ts).
+model SmtpConfig {
+  id           String   @id @default("default")
+  host         String   @default("")
+  port         Int      @default(587)
+  secure       Boolean  @default(false) // true = Port 465 (SSL), false = STARTTLS
+  username     String   @default("")
+  password     String   @default("") // verschluesselt; im Frontend nur maskiert
+  fromEmail    String   @default("")
+  fromName     String   @default("CREDO Fuehrungs-Cockpit")
+  replyToEmail String   @default("") // leer = kein Reply-To
+  isActive     Boolean  @default(false) // muss nach Einrichtung aktiviert werden
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("smtp_config")
+}
+
+// E-Mail-Vorlage je Event (editierbar im Einstellungs-Portal).
+// Fehlt eine DB-Vorlage, greift der Code-Default (lib/default-email-templates.ts).
+model EmailTemplate {
+  id        String  @id @default(cuid())
+  event     String  @unique // korrespondiert mit dem Event-Katalog (lib/email-events.ts)
+  name      String
+  subject   String
+  bodyHtml  String
+  bodyText  String?
+  variables Json // [{ key, description }]
+  // Empfaenger: kommagetrennt, variablen-faehig. Leer = Katalog-Default.
+  recipientTo      String  @default("")
+  recipientCc      String  @default("")
+  recipientBcc     String  @default("")
+  recipientReplyTo String  @default("")
+  isActive         Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("email_template")
+}
+
+// Versandprotokoll: jeder Versuch (Zustellnachweis + Fehlerdiagnose).
+// Hinweis: enthaelt Empfaenger-Adressen (personenbezogen) — Retention klaeren.
+model EmailLog {
+  id        String   @id @default(cuid())
+  event     String
+  recipient String   @default("")
+  cc        String?
+  bcc       String?
+  subject   String   @default("")
+  status    String // "SENT" | "FAILED" | "SKIPPED"
+  detail    String?
+  messageId String? // SMTP-Message-ID als Zustellnachweis
+  isTest    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([event])
+  @@index([status])
+  @@index([createdAt])
+  @@map("email_log")
+}
+
+// Generischer Key-Value-Speicher fuer App-weite Schalter
+// (z.B. globaler Reminder-Kill-Switch: key = "remindersGloballyEnabled").
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("app_setting")
 }
