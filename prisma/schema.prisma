@@ -235,3 +235,18 @@ model AppSetting {
 
   @@map("app_setting")
 }
+
+// Reservierung je Empfaenger/Event/Periode — macht den Reminder-Versand
+// idempotent OHNE Race: vor dem Versand wird hier ein Eintrag angelegt; der
+// Unique-Constraint laesst keinen zweiten Versand derselben Periode zu, auch
+// bei parallelen Cron-Triggern. periodKey = ISO-Kalenderwoche (z.B. "2026-W27").
+model ReminderDispatch {
+  id        String   @id @default(cuid())
+  recipient String
+  event     String
+  periodKey String
+  createdAt DateTime @default(now())
+
+  @@unique([recipient, event, periodKey])
+  @@map("reminder_dispatch")
+}

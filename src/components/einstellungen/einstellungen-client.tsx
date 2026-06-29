@@ -5,11 +5,25 @@
 // Uebergangs-Schutz per Admin-Token-Gate (bis RBAC, Phase 4).
 // ============================================================
 import { AlertCircle, CheckCircle2, Lock, Mail, ScrollText, Send } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { adminFetch, setAdminToken } from "@/lib/admin-client";
+import { adminFetch, clearAdminToken, setAdminToken } from "@/lib/admin-client";
 
 type Tab = "smtp" | "vorlagen" | "protokoll";
+
+// Wird aufgerufen, wenn ein Tab-Request nach dem Mount UNAUTHORIZED liefert
+// (Token abgelaufen/geaendert): Token verwerfen und zurueck zum Gate.
+const ReGateContext = createContext<() => void>(() => {});
+
+// Zentrale Fehlerbehandlung der Tabs: bei UNAUTHORIZED zurueck zum Gate,
+// sonst die deutsche Server-Meldung anzeigen.
+function behandleFehler(e: unknown, reGate: () => void, setFehler: (s: string | null) => void): void {
+  if (e instanceof Error && e.message === "UNAUTHORIZED") {
+    reGate();
+    return;
+  }
+  setFehler(e instanceof Error ? e.message : "Aktion fehlgeschlagen.");
+}
 
 interface SmtpConfig {
   host: string;
@@ -74,11 +88,17 @@ export function EinstellungenClient() {
     void pruefe();
   }, [pruefe]);
 
+  // Token verwerfen und Gate erneut zeigen (bei UNAUTHORIZED aus einem Tab).
+  const reGate = useCallback(() => {
+    clearAdminToken();
+    setAutorisiert(false);
+  }, []);
+
   if (autorisiert === null) return <Skeleton className="h-40 w-full" />;
   if (!autorisiert) return <TokenGate onOk={() => void pruefe()} />;
 
   return (
-    <div>
+    <ReGateContext.Provider value={reGate}>
       <ReminderSwitch />
       <nav className="mb-6 flex gap-1 border-b border-border" role="tablist">
         <TabButton aktiv={tab === "smtp"} onClick={() => setTab("smtp")} icon={<Mail className="h-4 w-4" />}>
@@ -95,7 +115,7 @@ export function EinstellungenClient() {
       {tab === "smtp" && <SmtpTab />}
       {tab === "vorlagen" && <VorlagenTab />}
       {tab === "protokoll" && <ProtokollTab />}
-    </div>
+    </ReGateContext.Provider>
   );
 }
 
@@ -173,24 +193,28 @@ function TokenGate({ onOk }: { onOk: () => void }) {
 // Reminder-Kill-Switch (global)
 // =============================================
 function ReminderSwitch() {
+  const reGate = useContext(ReGateContext);
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [speichert, setSpeichert] = useState(false);
+  const [fehler, setFehler] = useState<string | null>(null);
 
   useEffect(() => {
     adminFetch<{ enabled: boolean }>("/api/settings/reminders", "GET")
       .then((d) => setEnabled(d.enabled))
-      .catch(() => setEnabled(null));
-  }, []);
+      .catch((e) => behandleFehler(e, reGate, () => setEnabled(null)));
+  }, [reGate]);
 
   async function umschalten() {
     if (enabled === null) return;
     const neu = !enabled;
     setSpeichert(true);
+    setFehler(null);
     setEnabled(neu);
     try {
       await adminFetch("/api/settings/reminders", "PUT", { enabled: neu });
-    } catch {
+    } catch (e) {
       setEnabled(!neu); // Rollback
+      behandleFehler(e, reGate, () => setFehler("Konnte nicht gespeichert werden."));
     } finally {
       setSpeichert(false);
     }
@@ -205,11 +229,13 @@ function ReminderSwitch() {
         <p className="text-xs text-muted-foreground">
           Globaler Schalter fuer alle automatischen Erinnerungs-Mails.
         </p>
+        {fehler && <p className="mt-1 text-xs text-credo-rot">{fehler}</p>}
       </div>
       <button
         onClick={umschalten}
         disabled={speichert}
         aria-pressed={enabled}
+        aria-label="Wochen-Reminder global umschalten"
         className={`rounded-full px-3 py-1 text-xs font-medium ${
           enabled ? "bg-status-gruen text-white" : "bg-input text-foreground"
         }`}
@@ -224,6 +250,7 @@ function ReminderSwitch() {
 // Tab: SMTP
 // =============================================
 function SmtpTab() {
+  const reGate = useContext(ReGateContext);
   const [config, setConfig] = useState<SmtpConfig | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [erfolg, setErfolg] = useState<string | null>(null);
@@ -234,8 +261,8 @@ function SmtpTab() {
   useEffect(() => {
     adminFetch<SmtpConfig>("/api/settings/smtp", "GET")
       .then(setConfig)
-      .catch((e) => setFehler((e as Error).message));
-  }, []);
+      .catch((e) => behandleFehler(e, reGate, setFehler));
+  }, [reGate]);
 
   function set<K extends keyof SmtpConfig>(key: K, value: SmtpConfig[K]) {
     setConfig((c) => (c ? { ...c, [key]: value } : c));
@@ -251,7 +278,7 @@ function SmtpTab() {
       setConfig(gespeichert);
       setErfolg("SMTP-Konfiguration gespeichert.");
     } catch (e) {
-      setFehler((e as Error).message);
+      behandleFehler(e, reGate, setFehler);
     } finally {
       setSpeichert(false);
     }
@@ -265,7 +292,7 @@ function SmtpTab() {
       await adminFetch("/api/settings/smtp/test", "POST", { testEmail });
       setErfolg(`Test-Mail an ${testEmail} ausgeloest.`);
     } catch (e) {
-      setFehler((e as Error).message);
+      behandleFehler(e, reGate, setFehler);
     } finally {
       setTestet(false);
     }
@@ -346,6 +373,7 @@ function SmtpTab() {
 // Tab: Vorlagen
 // =============================================
 function VorlagenTab() {
+  const reGate = useContext(ReGateContext);
   const [rows, setRows] = useState<TemplateRow[] | null>(null);
   const [aktiv, setAktiv] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -359,8 +387,8 @@ function VorlagenTab() {
         setRows(r);
         setAktiv(r[0]?.event ?? null);
       })
-      .catch((e) => setFehler((e as Error).message));
-  }, []);
+      .catch((e) => behandleFehler(e, reGate, setFehler));
+  }, [reGate]);
 
   const row = rows?.find((r) => r.event === aktiv) ?? null;
 
@@ -389,7 +417,7 @@ function VorlagenTab() {
       patch({ source: "db" });
       setErfolg("Vorlage gespeichert.");
     } catch (e) {
-      setFehler((e as Error).message);
+      behandleFehler(e, reGate, setFehler);
     } finally {
       setSpeichert(false);
     }
@@ -403,7 +431,7 @@ function VorlagenTab() {
       await adminFetch("/api/settings/email-templates/test", "POST", { event: row.event, testEmail });
       setErfolg(`Test-Mail an ${testEmail} ausgeloest.`);
     } catch (e) {
-      setFehler((e as Error).message);
+      behandleFehler(e, reGate, setFehler);
     }
   }
 
@@ -494,14 +522,15 @@ function VorlagenTab() {
 // Tab: Protokoll
 // =============================================
 function ProtokollTab() {
+  const reGate = useContext(ReGateContext);
   const [logs, setLogs] = useState<LogRow[] | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
 
   useEffect(() => {
     adminFetch<LogRow[]>("/api/settings/email-log", "GET")
       .then(setLogs)
-      .catch((e) => setFehler((e as Error).message));
-  }, []);
+      .catch((e) => behandleFehler(e, reGate, setFehler));
+  }, [reGate]);
 
   if (fehler) return <Banner ton="fehler">{fehler}</Banner>;
   if (!logs) return <Skeleton className="h-64 w-full" />;

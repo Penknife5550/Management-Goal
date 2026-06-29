@@ -123,9 +123,20 @@ Migration: `20260629143848_mail_smtp_phase2`.
 `APP_URL`, `MAIL_DRY_RUN` (Dev: "1" = kein echter Versand).
 
 **Reminder-Logik**: FOKUS-WIG ohne Check-in > 7 Tage → eine gebündelte Mail je Owner
-(Consent + globaler Switch respektiert), CTA auf `/ziele`. Idempotenz über 20-h-Lookback.
+(Consent + globaler Switch respektiert), CTA auf `/ziele`. **Idempotenz race-sicher** über
+`ReminderDispatch` mit Unique-Constraint `(recipient, event, periodKey=ISO-Woche)`: vor dem
+Versand wird reserviert, ein zweiter (auch paralleler) Lauf läuft in P2002 und überspringt.
 Trigger: Host-Cron (Europe/Berlin), z. B. `0 8 * * 1`, ruft `/api/cron/reminders` mit
 `Authorization: Bearer $CRON_SECRET`.
+
+**Code-Review-Nachzug (Commit nach 99c8f34)** — 5 GoLive-Blocker behoben:
+- C1 Doppelversand: `findFirst`+`create` → atomare `ReminderDispatch`-Reservierung (s. o.).
+- C2 XSS/Header-Injection: Betreff CRLF-bereinigt; HTML-Escaping per Unit- **und** End-to-End-Test belegt.
+- M1 Relay-Schutz: optionale `MAIL_ALLOWED_DOMAINS`-Allowlist in Empfänger- und `overrideTo`-Pfad.
+- M2 Info-Leak: rohe SMTP-Fehler nur ins Server-Log, nach außen kategorisierte deutsche Meldung.
+- M3 Auth: UNAUTHORIZED in den Tabs führt zurück zum Token-Gate (statt „UNAUTHORIZED"-Banner).
+- Offen (Backlog, kein Blocker): Perf-Skalierung (N+1/Pool/Index), `einstellungen-client.tsx` aufteilen,
+  Token-Guards DRY, A11y (ARIA-Tabs/aria-live/Grün-Kontrast), EmailLog-Retention.
 
 **Bewusste Grenzen / offene Punkte**
 - **Admin-Guard ist ein Übergang**: `ADMIN_TOKEN`-Header statt RBAC. In Phase 4 ersetzen.

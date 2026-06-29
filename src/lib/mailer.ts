@@ -44,12 +44,48 @@ export function renderTemplate(
   );
 }
 
+// Optionale Empfaenger-Allowlist (Relay-Schutz): nur Mails an erlaubte Domains.
+// MAIL_ALLOWED_DOMAINS leer/ungesetzt = keine Einschraenkung (Dev/Default).
+function erlaubteDomains(): string[] {
+  return (process.env.MAIL_ALLOWED_DOMAINS ?? "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export function istErlaubteAdresse(email: string): boolean {
+  const domains = erlaubteDomains();
+  if (domains.length === 0) return true;
+  const at = email.lastIndexOf("@");
+  if (at < 0) return false;
+  return domains.includes(email.slice(at + 1).toLowerCase());
+}
+
+// nodemailer-Fehler auf eine knappe deutsche Kategorie mappen — verhindert, dass
+// Host/Port/Auth-Hinweise im Klartext an Client und EmailLog gelangen. Der rohe
+// Fehler wird ausschliesslich serverseitig geloggt.
+function mapSmtpError(error: unknown): string {
+  const code = (error as { code?: string })?.code ?? "";
+  const msg = error instanceof Error ? error.message : String(error);
+  if (code === "EAUTH" || /\b535\b|5\.7\.\d/.test(msg)) {
+    return "SMTP-Anmeldung fehlgeschlagen (Benutzer/Passwort pruefen).";
+  }
+  if (["ECONNECTION", "ECONNREFUSED", "ENOTFOUND", "EDNS", "EHOSTUNREACH"].includes(code)) {
+    return "Verbindung zum SMTP-Server fehlgeschlagen (Host/Port pruefen).";
+  }
+  if (["ETIMEDOUT", "ESOCKET"].includes(code) || /timeout/i.test(msg)) {
+    return "Zeitueberschreitung beim SMTP-Server.";
+  }
+  return "SMTP-Versand fehlgeschlagen.";
+}
+
 // Empfaengerfeld rendern (Festadressen + {{variablen}}), validieren, deduplizieren.
+// Adressen ausserhalb der Allowlist werden verworfen.
 function renderRecipientField(field: string, vars: Record<string, string>): string {
   const addresses = renderTemplate(field, vars)
     .split(",")
     .map((a) => a.trim())
-    .filter((a) => EMAIL_PATTERN.test(a));
+    .filter((a) => EMAIL_PATTERN.test(a) && istErlaubteAdresse(a));
   return [...new Set(addresses.map((a) => a.toLowerCase()))].join(", ");
 }
 
@@ -125,9 +161,9 @@ export async function sendEmailDetailed(options: MailOptions): Promise<SendEmail
     }
     return { ok: true, messageId: info.messageId };
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("[Mailer] Versand fehlgeschlagen:", msg);
-    return { ok: false, error: msg };
+    // Roh nur ins Server-Log; nach aussen nur die kategorisierte Meldung.
+    console.error("[Mailer] Versand fehlgeschlagen:", error instanceof Error ? error.message : String(error));
+    return { ok: false, error: mapSmtpError(error) };
   }
 }
 
@@ -155,7 +191,8 @@ export async function testSmtpConnection(
     }
     return { success: true, durationMs: Date.now() - start, startedAt: start };
   } catch (error) {
-    return fail(error instanceof Error ? error.message : "Unbekannter Fehler");
+    console.error("[Mailer] SMTP-Test fehlgeschlagen:", error instanceof Error ? error.message : String(error));
+    return fail(mapSmtpError(error));
   }
 }
 
@@ -233,7 +270,8 @@ export function renderEventEmail(
   }
 
   const body = {
-    subject: renderTemplate(template.subject, vars),
+    // Betreff CRLF-bereinigen: verhindert Header-Injection ueber Variablenwerte.
+    subject: renderTemplate(template.subject, vars).replace(/[\r\n]+/g, " "),
     html: renderTemplate(template.bodyHtml, vars, { escapeHtml: true }),
     text: template.bodyText ? renderTemplate(template.bodyText, vars) : undefined,
   };
@@ -242,6 +280,10 @@ export function renderEventEmail(
   const replyTo = renderRecipientField(replyToField, vars) || undefined;
 
   if (options?.overrideTo) {
+    // Test-Versand: auch die frei eingegebene Zieladresse muss Pattern + Allowlist erfuellen.
+    if (!EMAIL_PATTERN.test(options.overrideTo) || !istErlaubteAdresse(options.overrideTo)) {
+      return { rendered: null, skipReason: `Empfaenger "${options.overrideTo}" ist nicht zugelassen` };
+    }
     return { rendered: { to: options.overrideTo, replyTo, ...body } };
   }
 

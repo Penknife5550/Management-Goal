@@ -4,7 +4,7 @@
 // Faelligkeit (Signal lastCheckinAt/createdAt) + Buendelung je Owner inkl. Consent.
 // ============================================================
 import { describe, expect, it } from "vitest";
-import { buendleNachOwner, istWigFaellig, STALE_TAGE } from "../../src/lib/reminders";
+import { buendleNachOwner, isoWeekKey, istWigFaellig, STALE_TAGE } from "../../src/lib/reminders";
 
 const JETZT = new Date("2026-06-29T08:00:00.000Z");
 const vorTagen = (n: number) => new Date(JETZT.getTime() - n * 24 * 60 * 60 * 1000);
@@ -25,6 +25,10 @@ describe("istWigFaellig", () => {
 
   it("genau an der Grenze (STALE_TAGE Tage) ist faellig", () => {
     expect(istWigFaellig({ status: "FOKUS", lastCheckinAt: vorTagen(STALE_TAGE), createdAt: vorTagen(40) }, JETZT)).toBe(true);
+  });
+
+  it("knapp unter der Grenze (STALE_TAGE-1) ist NICHT faellig", () => {
+    expect(istWigFaellig({ status: "FOKUS", lastCheckinAt: vorTagen(STALE_TAGE - 1), createdAt: vorTagen(40) }, JETZT)).toBe(false);
   });
 
   it("ohne Check-in zaehlt createdAt als Bezug", () => {
@@ -74,5 +78,22 @@ describe("buendleNachOwner", () => {
   it("trennt verschiedene Owner", () => {
     const res = buendleNachOwner([wig("u1", "A"), wig("u2", "B")], JETZT);
     expect(res).toHaveLength(2);
+  });
+});
+
+describe("isoWeekKey", () => {
+  it("liefert das ISO-Wochen-Format YYYY-Www", () => {
+    expect(isoWeekKey(new Date("2026-06-29T08:00:00Z"))).toMatch(/^\d{4}-W\d{2}$/);
+  });
+
+  it("rechnet bekannte Wochen korrekt (Donnerstag-Regel)", () => {
+    expect(isoWeekKey(new Date("2026-01-01T12:00:00Z"))).toBe("2026-W01"); // Do = KW1
+    expect(isoWeekKey(new Date("2026-01-05T12:00:00Z"))).toBe("2026-W02"); // Mo = KW2
+  });
+
+  it("ist innerhalb derselben Woche stabil (Idempotenz-Periode)", () => {
+    const mo = isoWeekKey(new Date("2026-06-29T08:00:00Z"));
+    const mi = isoWeekKey(new Date("2026-07-01T20:00:00Z"));
+    expect(mo).toBe(mi);
   });
 });

@@ -10,14 +10,31 @@
 //             am selben Tag (robuster als Kalendertag-Mathematik ueber Zeitzonen).
 //             Den eigentlichen Versandzeitpunkt steuert der Host-Cron (Europe/Berlin).
 // ============================================================
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { sendEventEmail } from "@/lib/mailer";
 
 export const STALE_TAGE = 7;
 const TAG_MS = 24 * 60 * 60 * 1000;
-const DEDUPE_LOOKBACK_MS = 20 * TAG_MS / 24; // 20 Stunden
 const REMINDER_EVENT = "weekly-checkin-reminder";
 const SWITCH_KEY = "remindersGloballyEnabled";
+
+// ISO-8601-Kalenderwoche als Schluessel, z.B. "2026-W27" (Donnerstag-Regel).
+// Dient als Idempotenz-Periode: max. eine Reminder-Mail je Empfaenger und Woche.
+// Berechnung aus den UTC-Datumsteilen; der Cron laeuft Mo 08:00 Europe/Berlin,
+// daher entspricht das UTC-Datum dem Berliner Kalendertag.
+export function isoWeekKey(date: Date): string {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const dayNum = (d.getUTCDay() + 6) % 7; // Mo=0 … So=6
+  d.setUTCDate(d.getUTCDate() - dayNum + 3); // Donnerstag dieser Woche
+  const donnerstag = d.getTime();
+  const jahr = new Date(donnerstag).getUTCFullYear();
+  const jahresStart = new Date(Date.UTC(jahr, 0, 4)); // 4. Jan liegt immer in KW1
+  const jsDayNum = (jahresStart.getUTCDay() + 6) % 7;
+  jahresStart.setUTCDate(jahresStart.getUTCDate() - jsDayNum + 3);
+  const woche = 1 + Math.round((donnerstag - jahresStart.getTime()) / (7 * TAG_MS));
+  return `${jahr}-W${String(woche).padStart(2, "0")}`;
+}
 
 // ---- reine Auswahl-Logik (unit-testbar, keine DB) ----
 export interface FaelligkeitsGoal {
@@ -89,13 +106,14 @@ export async function setReminderGlobalAktiv(aktiv: boolean): Promise<void> {
 export interface DispatchErgebnis {
   versendet: number;
   uebersprungen: number;
+  fehlgeschlagen: number;
   faellige: number;
   grund?: string;
 }
 
 export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<DispatchErgebnis> {
   if (!(await istReminderGlobalAktiv())) {
-    return { versendet: 0, uebersprungen: 0, faellige: 0, grund: "Reminder global deaktiviert" };
+    return { versendet: 0, uebersprungen: 0, fehlgeschlagen: 0, faellige: 0, grund: "Reminder global deaktiviert" };
   }
 
   const fokus = await prisma.goal.findMany({
@@ -105,24 +123,27 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
   const buendel = buendleNachOwner(fokus, jetzt);
 
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-  const seit = new Date(jetzt.getTime() - DEDUPE_LOOKBACK_MS);
+  const periodKey = isoWeekKey(jetzt);
   let versendet = 0;
   let uebersprungen = 0;
+  let fehlgeschlagen = 0;
 
   for (const b of buendel) {
     const empfaenger = b.email.toLowerCase();
-    const schonGesendet = await prisma.emailLog.findFirst({
-      where: {
-        event: REMINDER_EVENT,
-        status: "SENT",
-        isTest: false,
-        recipient: empfaenger,
-        createdAt: { gte: seit },
-      },
-    });
-    if (schonGesendet) {
-      uebersprungen++;
-      continue;
+
+    // Reservierung VOR dem Versand: der Unique-Constraint (recipient,event,periodKey)
+    // verhindert Doppelversand auch bei parallelen Cron-Laeufen. P2002 = diese Woche
+    // bereits bedient -> ueberspringen.
+    try {
+      await prisma.reminderDispatch.create({
+        data: { recipient: empfaenger, event: REMINDER_EVENT, periodKey },
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        uebersprungen++;
+        continue;
+      }
+      throw e;
     }
 
     const ergebnis = await sendEventEmail(REMINDER_EVENT, {
@@ -133,8 +154,10 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
       link: `${appUrl}/ziele`,
     });
     if (ergebnis.status === "SENT") versendet++;
-    else uebersprungen++;
+    else fehlgeschlagen++;
+    // Reservierung bleibt auch bei Fehlschlag bestehen (at-most-once: lieber kein
+    // Reminder als eine Doppel-Mail). Der Fehlergrund steht im EmailLog.
   }
 
-  return { versendet, uebersprungen, faellige: buendel.length };
+  return { versendet, uebersprungen, fehlgeschlagen, faellige: buendel.length };
 }
