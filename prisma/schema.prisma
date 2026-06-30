@@ -95,6 +95,7 @@ model Goal {
   leadMeasures LeadMeasure[]
   learningLog  LearningLog?
   checkIns     CheckIn[]
+  q2Blocks     Q2Block[]
 
   // KI-Anreicherung: Felder vorgesehen, in diesem Slice NICHT verdrahtet
   aiVorschlag  Json?
@@ -235,6 +236,24 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 
   @@map("app_setting")
+}
+
+// Q2-Schutz (Covey/Drucker): woechentlich wiederkehrender Zeitblock fuer
+// "wichtig, nicht dringend" — die aktive Arbeit an den WIGs. Optional einer WIG
+// zugeordnet. Exportierbar als ICS (woechentliche Wiederholung).
+model Q2Block {
+  id          String   @id @default(cuid())
+  ownerId     String
+  titel       String
+  wochentag   Int // ISO: 1=Mo … 7=So
+  startMinute Int // Minuten ab Mitternacht (0–1439), lokale Zeit (Europe/Berlin)
+  dauerMin    Int      @default(60)
+  goalId      String?
+  goal        Goal?    @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([ownerId])
+  @@map("q2_block")
 }
 
 // Check-in-Historie: pro Wochen-Check-in EIN Snapshot je WIG (Ampel + Fortschritt

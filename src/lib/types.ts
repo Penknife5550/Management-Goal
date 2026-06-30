@@ -26,6 +26,16 @@ export interface ZielDTO {
   createdAt: string;
 }
 
+export interface Q2BlockDTO {
+  id: string;
+  titel: string;
+  wochentag: number; // ISO 1=Mo … 7=So
+  startMinute: number; // Minuten ab Mitternacht
+  dauerMin: number;
+  goalId: string | null;
+  goalTitel: string | null;
+}
+
 // Gebuendelte Aktions-Callbacks (vermeidet Prop-Drilling-Wildwuchs).
 export interface ZielAktionen {
   onFortschritt: (id: string, fortschritt: number) => void;

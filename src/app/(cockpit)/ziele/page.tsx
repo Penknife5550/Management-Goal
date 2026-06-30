@@ -1,4 +1,4 @@
-import { CalendarCheck, Settings } from "lucide-react";
+import { CalendarCheck, CalendarClock, Settings } from "lucide-react";
 import Link from "next/link";
 import { ZieleClient } from "@/components/ziele/ziele-client";
 
@@ -16,6 +16,13 @@ export default function ZielePage() {
             >
               <CalendarCheck className="h-4 w-4" aria-hidden="true" />
               Wochen-Check-in
+            </Link>
+            <Link
+              href="/fokuszeit"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <CalendarClock className="h-4 w-4" aria-hidden="true" />
+              Fokuszeit
             </Link>
             <Link
               href="/einstellungen"

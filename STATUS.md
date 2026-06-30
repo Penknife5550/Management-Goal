@@ -97,6 +97,7 @@ Macht aus dem Board ein täglich/wöchentlich genutztes Werkzeug (Adoption-Treib
    Batching), kein Spam. Erinnerung an Wochen-Check-in.
    → **SMTP-Fundament + Wochen-Reminder bereits gebaut** (siehe Abschnitt 8).
 3. **Q2-Schutz**: Funktion, um „wichtig, nicht dringend"-Zeit aktiv zu blocken.
+   → **gebaut** (siehe Abschnitt 10).
 4. **Small-Wins / Progress-Feedback** (Amabile): sichtbares Feiern kleiner Fortschritte.
    → **gebaut** als Teil des Check-in-Abschlusses (Abschnitt 9).
 5. **Erstes KI-Feature: Eisenhower-Vorschlag** im Accept/Reject-Muster mit sichtbarer
@@ -188,3 +189,28 @@ Fortschritt ruhige Ermutigung statt Fake-Feier. API liefert `wins` in der Check-
 
 **Nächste Phase-2-Bausteine** (offen): Q2-Schutz (Zeitblock) · erstes KI-Feature
 (Eisenhower-Vorschlag, Accept/Reject).
+
+## 10. Phase 2 — Q2-Schutz / Fokuszeit (gebaut)
+
+Covey/Drucker: wiederkehrende Zeitblöcke für „wichtig, nicht dringend" (WIG-Arbeit),
+mit ICS-Export in den eigenen Kalender. Migration: `q2_block`.
+
+**Neue Bausteine**
+- DB: `Q2Block` (ownerId, titel, wochentag 1–7, startMinute, dauerMin, optional goalId);
+  `Goal.q2Blocks`-Relation (onDelete SetNull).
+- Domäne: `lib/q2.ts` (minutenZuHHMM/hhmmZuMinuten, naechstesDatum, **baueICS** — wöchentliche
+  RRULE, RFC-5545-Escaping, floating local time Europe/Berlin); `lib/q2-service.ts` (DTO-Mapper).
+- API: `GET/POST /api/q2-blocks`, `PATCH/DELETE /api/q2-blocks/[id]`, `GET /api/q2-blocks/ics`
+  (text/calendar-Download). Owner-Scope erzwungen; verknüpfte WIG muss dem Nutzer gehören.
+- UI: Seite `/fokuszeit` — Anlegen/Bearbeiten/Löschen (Wochentag, Beginn, Dauer, optional WIG),
+  Liste, **Kalender-Export (.ics)**. Nav-Link „Fokuszeit" auf `/ziele`.
+
+**Verifiziert**: `tsc` sauber · Tests **74/74** (+7 q2: Zeit, naechstesDatum, ICS) · Build grün ·
+Runtime-Smoke: CRUD alle 200, ICS mit korrekten Headern + `RRULE/SUMMARY/DESCRIPTION`,
+Validierung & Scope → 400.
+
+**Hinweis ICS**: aktuell Datei-Download (Import in jeden Kalender). Echte Abo-/Sync-URL
+(webcal, OAuth) sinnvoll erst mit echter Auth (Phase 4).
+
+**Letzter offener Phase-2-Baustein**: erstes KI-Feature (Eisenhower-Vorschlag, Accept/Reject,
+n8n + Ollama) — eigenes, größeres Vorhaben.
