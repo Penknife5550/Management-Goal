@@ -1,9 +1,24 @@
 # STATUS & Übergabe — Führungs-Cockpit
 
-> Stand: 2026-06-21. Dieses Dokument ist der Wiedereinstieg nach dem Maschinen-Neustart.
-> Danach geht es mit **Phase 2** weiter.
+> **AKTUELLER STAND: 2026-06-30 — Phase 2 ist KOMPLETT.**
+> Letzter Commit (lokal = Remote): `bb34fbf`. Branch `main`. Working Tree sauber.
+> GoLive-Status: 🟢 (kein Critical, keine blockierenden Majors).
+>
+> **Was steht:** Phase 1 (Goal/WIG-Modul) + Phase 2 vollständig — Wochen-Check-in,
+> SMTP-Mailer + Wochen-Reminder, Q2-Schutz/Fokuszeit, Small-Wins, plus 2 vollständige
+> 7-Agenten-Code-Reviews mit behobenen Blockern und Aufräum-Backlog.
+> Details: Abschnitte **8 (SMTP/Reminder) · 9 (Check-in) · 10 (Q2) · 11 (Review+Blocker)
+> · 12 (Aufräum M1/M7/M8)**.
+>
+> **Verifiziert:** `tsc` sauber · Unit-Tests **86/86** · Production-Build grün.
+>
+> **NÄCHSTER SCHRITT (neue Session): KI-Eisenhower-Feature — siehe Abschnitt 13.**
+> Vorher PLANEN/KLÄREN, nicht direkt bauen.
+>
+> ---
+> _Historie unten: Abschnitte 1–7 beschreiben den Phase-1-Stand (2026-06-21)._
 
-## 1. Wo stehen wir?
+## 1. Wo stehen wir? (historisch — Phase-1-Abschluss)
 
 **Phase 1 (Goal/WIG-Modul, strategische Ebene) ist gebaut, committet und gepusht.**
 
@@ -265,3 +280,51 @@ alle Settings-Routen 200, Validierung 400, Cron batched versendet:1, Q2 CRUD 200
 **Umgebungs-Hinweis**: `next start` warf danach intermittierend `ERR_INVALID_PACKAGE_CONFIG`
 (Commander) — Node-24.12/Next-15.5-Flakiness im CLI-Bootstrap, NICHT der App-Code (Datei ist
 valide, Build/Tests grün, ein vorheriger Start lief). Bei Bedarf `npm ci` / Start erneut.
+
+## 13. NÄCHSTE SESSION — KI-Eisenhower (erst PLANEN/KLÄREN)
+
+Letzter Phase-2-Baustein (PLAN.md Phase 2, Punkt 5): **Eisenhower-Vorschlag im
+Accept/Reject-Pattern mit sichtbarer Confidence — KI schlägt vor, überschreibt nie.**
+Anbindung laut PLAN: **n8n + Ollama lokal (PII-sicher), asynchron**, mit 3-Schichten-
+Webhook-Loop-Schutz (PLAN.md Abschnitt 5). Das ist der größere Brocken mit eigener Infra.
+
+### Wichtige Abhängigkeit (unbedingt zuerst klären!)
+Eisenhower klassifiziert **Aufgaben** (wichtig × dringend). Das Cockpit hat aktuell **KEIN
+Aufgaben-/Task-Modul** (UI/API) — Phase 1 baute nur die Goal/WIG-Ebene. Das `Task`-Modell
+existiert nur als **Schema-Stub** (Felder `important/urgent`, `aiQuadrantSuggestion`,
+`aiConfidence`, `aiReasoning`, `lastModifiedBy: EnrichmentSource`) ohne Route/UI.
+→ Entweder erst ein schlankes Aufgaben-/Eisenhower-Modul bauen, ODER das „erste KI-Feature"
+auf die bestehende WIG-Ebene legen (z.B. KI-Vorschlag für Outcome / next-best-action).
+`WebhookIdempotency` (für den Loop-Schutz) ist im Schema **noch nicht** vorhanden.
+
+### Vor dem Bauen mit dem User klären
+1. **Scope:** erst Aufgaben-Modul (Eisenhower-Matrix + schlanker Kanban) bauen, oder erstes
+   KI-Feature auf WIG-Ebene? (Eisenhower ohne Tasks geht nicht.)
+2. **n8n:** Welche Instanz/URL ist erreichbar? Auth/Service-Key? Vom Cockpit-Container erreichbar?
+3. **Ollama:** Lokal erreichbar (URL/Modell)? Latenz → wirklich asynchron + Staging?
+4. **Datenfluss:** Cockpit → Webhook → n8n → Ollama → Callback; Vorschlag wird gestaged
+   (gespeichert), User macht Accept/Reject; Confidence sichtbar. Genau festlegen.
+5. **PII-Routing:** Welche Felder gehen an die KI? Bestätigen: PII nur an lokales Ollama,
+   nichts in die Cloud.
+6. **Loop-Schutz (3 Schichten, PLAN.md §5):** Source-Flag (`lastModifiedBy`), Idempotenz
+   (`WebhookIdempotency` — neu anzulegen), Respond-immediately. Im Plan einbauen.
+
+### Wiedereinstieg (hochfahren)
+```bash
+cd "/Users/dimitririesen/Desktop/claude_projekte/Managemt Software"
+docker start cockpit-db
+export DATABASE_URL="postgresql://credo:credo_dev_2026@localhost:5433/cockpit?schema=public"
+export ENCRYPTION_KEY="<64-hex>"            # siehe .env.example / CLAUDE.md
+export ADMIN_TOKEN="<token>"  CRON_SECRET="<secret>"  APP_URL="http://localhost:3000"
+export MAIL_DRY_RUN="1"                       # Dev: kein echter Mailversand
+npx prisma migrate deploy                     # falls neue Migrationen
+npm run typecheck && npm test                 # tsc + 86 Unit-Tests
+npx next dev -p 3000                          # -> /ziele /check-in /fokuszeit /einstellungen
+```
+Hinweis: `next start` (Prod-Modus) warf lokal zuletzt intermittierend
+`ERR_INVALID_PACKAGE_CONFIG` (Node-24.12/Next-15.5-Flakiness, nicht der Code) — `next dev`
+und der Docker-Build (eigene Node-Version) sind nicht betroffen. Bei Bedarf `npm ci`.
+
+### Referenzen
+PLAN.md (Phase 2 Punkt 5; Phase 6 „n8n + KI-Tiefe"; Abschnitt 5 Loop-Schutz) ·
+RECHERCHE-fuehrungs-cockpit.md · BEWERTUNG-plan-adoption.md · Memory `mail-via-eigenes-smtp`.
