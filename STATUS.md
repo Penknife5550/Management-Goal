@@ -214,3 +214,34 @@ Validierung & Scope → 400.
 
 **Letzter offener Phase-2-Baustein**: erstes KI-Feature (Eisenhower-Vorschlag, Accept/Reject,
 n8n + Ollama) — eigenes, größeres Vorhaben.
+
+## 11. Phase-2-Gesamt-Review + Blocker-Batch (gebaut)
+
+7-Agenten-Review über den kompletten Phase-2-Code (42 Dateien). Ergebnis: 1 CRITICAL,
+22 MAJOR (≈8 echte Themen), Rest MINOR/INFO — Fundamente stark, Blocker eng umrissen.
+
+**Behoben (Blocker-Batch)**
+- C1 (Error-Handling, CRITICAL): Reminder-Schleife gehärtet — Einzel-DB-Fehler überspringt
+  nur den Empfänger (kein `throw`/Lauf-Abbruch); Reservierung wird bei Versand-FAIL wieder
+  freigegeben (Retry nächster Lauf, weiter doppelversand-sicher via Unique-Constraint).
+- M3 (Security): `fromName` CRLF-bereinigt (Header-Injection) in `smtpConfigSchema`.
+- M5 (UI/CodeQuality): zentrales `AMPEL_META` in `goals.ts`; Grün-Kontrast in `wig-karte`
+  auf `bg-status-gruen-text` (WCAG AA), AMPELN-Duplikat entfernt.
+- M4 (Performance/DSGVO): Retention — `/api/cron/cleanup` (CRON_SECRET) löscht alte EmailLog
+  (>180 T) / ReminderDispatch (>90 T); `@@index([createdAt])` auf reminder_dispatch. CheckIn bleibt.
+- M6 (Testing): +12 Tests — `dispatchWeeklyReminders` (Prisma-Mock: Kill-Switch/P2002/FAILED-
+  Rollback/Einzelfehler), `pruefeCheckinScope` (IDOR), `mapSmtpError` (Leak-Schutz), Empfänger-
+  Allowlist To/Cc/Bcc. Außerdem Check-in-Scope als reine Funktion extrahiert (auch M7-Konsistenz).
+
+**M2 war ein False-Positive**: CSP/Security-Header existieren bereits via `next.config.ts`
+`headers()` (Phase 1, Commit 82af46a) — der Agent suchte nur nach `middleware.ts`. Runtime
+bestätigt: CSP inkl. `connect-src 'self'`/`frame-ancestors 'none'` auf allen Seiten. Ein
+testweise angelegtes `src/middleware.ts` ließ den Next-15.5-Build/Runtime hängen
+(`e.adapter is not a function`) → wieder entfernt; `next.config`-Weg ist der robuste.
+
+**Verifiziert**: `tsc` sauber · Tests **86/86** · Build grün · Runtime-Smoke: alle Seiten 200,
+CSP-Header gesetzt, Reminder/Cleanup laufen, fromName-Umbruch entfernt.
+
+**Offen (separater Aufräum-Commit, kein Blocker)**: M1 Reminder-Perf (Config/Template vor der
+Schleife + Batch-Versand), M7 (Enum-Single-Source via `z.nativeEnum`, notify()-Kanal-Grenze),
+M8 (`parseBody`/`withAdmin`-Route-Helfer); diverse MINORs (P2025→409, decrypt-Fehler im Test).

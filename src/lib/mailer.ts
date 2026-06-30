@@ -64,7 +64,7 @@ export function istErlaubteAdresse(email: string): boolean {
 // nodemailer-Fehler auf eine knappe deutsche Kategorie mappen — verhindert, dass
 // Host/Port/Auth-Hinweise im Klartext an Client und EmailLog gelangen. Der rohe
 // Fehler wird ausschliesslich serverseitig geloggt.
-function mapSmtpError(error: unknown): string {
+export function mapSmtpError(error: unknown): string {
   const code = (error as { code?: string })?.code ?? "";
   const msg = error instanceof Error ? error.message : String(error);
   if (code === "EAUTH" || /\b535\b|5\.7\.\d/.test(msg)) {

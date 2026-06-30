@@ -9,7 +9,7 @@ import { randomUUID } from "crypto";
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
-import { berechneWin } from "@/lib/check-in";
+import { berechneWin, pruefeCheckinScope } from "@/lib/check-in";
 import { prisma } from "@/lib/db";
 import { type GoalMitLeads, toZielDTO } from "@/lib/goal-service";
 import type { Ampel } from "@/lib/goals";
@@ -32,14 +32,12 @@ export async function POST(request: NextRequest) {
     });
     const perGoal = new Map(fokus.map((g) => [g.id, g]));
 
-    for (const item of parsed.data.items) {
-      const goal = perGoal.get(item.goalId);
-      if (!goal) return jsonError("Ungueltige oder nicht aktive WIG.", 400);
-      const leadIds = new Set(goal.leadMeasures.map((l) => l.id));
-      if (item.leads.some((l) => !leadIds.has(l.id))) {
-        return jsonError("Lead Measure gehoert nicht zur WIG.", 400);
-      }
-    }
+    // Owner-/FOKUS-Scope serverseitig erzwingen (reine, getestete Logik).
+    const scope = pruefeCheckinScope(
+      parsed.data.items,
+      fokus.map((g) => ({ id: g.id, leadIds: g.leadMeasures.map((l) => l.id) })),
+    );
+    if (!scope.ok) return jsonError(scope.fehler, 400);
 
     // Small-Wins VOR dem Update berechnen (alter Stand vs. Eingabe).
     const wins = parsed.data.items.map((item) => {

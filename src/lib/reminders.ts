@@ -132,20 +132,22 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
 
   for (const b of buendel) {
     const empfaenger = b.email.toLowerCase();
+    const reservierung = { recipient: empfaenger, event: REMINDER_EVENT, periodKey };
 
     // Reservierung VOR dem Versand: der Unique-Constraint (recipient,event,periodKey)
     // verhindert Doppelversand auch bei parallelen Cron-Laeufen. P2002 = diese Woche
-    // bereits bedient -> ueberspringen.
+    // bereits bedient -> ueberspringen. Ein ANDERER DB-Fehler (z.B. Connection-Drop)
+    // darf NICHT den ganzen Lauf abbrechen -> nur diesen Empfaenger ueberspringen.
     try {
-      await prisma.reminderDispatch.create({
-        data: { recipient: empfaenger, event: REMINDER_EVENT, periodKey },
-      });
+      await prisma.reminderDispatch.create({ data: reservierung });
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
         uebersprungen++;
-        continue;
+      } else {
+        console.error("[Reminder] Reservierung fehlgeschlagen:", e instanceof Error ? e.message : e);
+        fehlgeschlagen++;
       }
-      throw e;
+      continue;
     }
 
     const ergebnis = await sendEventEmail(REMINDER_EVENT, {
@@ -155,10 +157,17 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
       wigListe: b.titel.join(", "),
       link: `${appUrl}/check-in`,
     });
-    if (ergebnis.status === "SENT") versendet++;
-    else fehlgeschlagen++;
-    // Reservierung bleibt auch bei Fehlschlag bestehen (at-most-once: lieber kein
-    // Reminder als eine Doppel-Mail). Der Fehlergrund steht im EmailLog.
+    if (ergebnis.status === "SENT") {
+      versendet++;
+    } else {
+      // Versand fehlgeschlagen (FAILED) ist NICHT "zugestellt": Reservierung wieder
+      // freigeben, damit ein erneuter Cron-Lauf es nochmal versucht (kein Doppelversand,
+      // da nur SENT zaehlt und der Unique-Constraint weiter schuetzt).
+      await prisma.reminderDispatch
+        .deleteMany({ where: reservierung })
+        .catch((e) => console.error("[Reminder] Reservierung-Rollback fehlgeschlagen:", e));
+      fehlgeschlagen++;
+    }
   }
 
   return { versendet, uebersprungen, fehlgeschlagen, faellige: buendel.length };

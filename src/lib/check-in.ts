@@ -28,6 +28,31 @@ export interface Win {
   hatFortschritt: boolean;
 }
 
+// --- Scope-Pruefung des Check-ins (rein, testbar) ---
+// Stellt sicher, dass nur eigene, aktive FOKUS-WIGs und deren eigene Lead Measures
+// eingecheckt werden (IDOR-Barriere; serverseitig vor dem Update).
+export interface CheckinItem {
+  goalId: string;
+  leads: { id: string }[];
+}
+export interface FokusWigScope {
+  id: string;
+  leadIds: string[];
+}
+export type ScopePruefung = { ok: true } | { ok: false; fehler: string };
+
+export function pruefeCheckinScope(items: CheckinItem[], fokus: FokusWigScope[]): ScopePruefung {
+  const erlaubt = new Map(fokus.map((g) => [g.id, new Set(g.leadIds)]));
+  for (const item of items) {
+    const leads = erlaubt.get(item.goalId);
+    if (!leads) return { ok: false, fehler: "Ungueltige oder nicht aktive WIG." };
+    if (item.leads.some((l) => !leads.has(l.id))) {
+      return { ok: false, fehler: "Lead Measure gehoert nicht zur WIG." };
+    }
+  }
+  return { ok: true };
+}
+
 export function berechneWin(e: WinEingabe): Win {
   const fortschrittDelta = Math.max(0, e.fortschrittNeu - e.fortschrittAlt);
   const ampelVerbessert = AMPEL_RANG[e.ampelNeu] > AMPEL_RANG[e.ampelAlt];

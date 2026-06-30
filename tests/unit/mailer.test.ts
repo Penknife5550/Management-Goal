@@ -4,7 +4,7 @@
 // Betreff-CRLF-Bereinigung (Header-Injection) und Empfaenger-Allowlist.
 // ============================================================
 import { afterEach, describe, expect, it } from "vitest";
-import { istErlaubteAdresse, renderEventEmail, renderTemplate, type ResolvedTemplate } from "../../src/lib/mailer";
+import { istErlaubteAdresse, mapSmtpError, renderEventEmail, renderTemplate, type ResolvedTemplate } from "../../src/lib/mailer";
 
 const template = (over: Partial<ResolvedTemplate> = {}): ResolvedTemplate => ({
   subject: "Betreff {{name}}",
@@ -89,5 +89,48 @@ describe("istErlaubteAdresse / Allowlist", () => {
     );
     expect(rendered).toBeNull();
     expect(skipReason).toContain("nicht zugelassen");
+  });
+});
+
+describe("mapSmtpError (kein Host/Auth-Leak)", () => {
+  it("kategorisiert bekannte Fehler ohne Roh-Details", () => {
+    expect(mapSmtpError({ code: "EAUTH", message: "535 5.7.8 user/pass mail.intern:587" })).toContain("Anmeldung");
+    expect(mapSmtpError({ code: "ECONNREFUSED", message: "connect 10.0.0.5:587" })).toContain("Verbindung");
+    expect(mapSmtpError({ code: "ETIMEDOUT", message: "x" })).toContain("Zeitueberschreitung");
+    expect(mapSmtpError(new Error("Read timeout"))).toContain("Zeitueberschreitung");
+  });
+
+  it("faellt auf eine generische Meldung zurueck und leakt nie Host/Port", () => {
+    const out = mapSmtpError(new Error("550 relay denied for mail.intern.example:25"));
+    expect(out).toBe("SMTP-Versand fehlgeschlagen.");
+    expect(out).not.toMatch(/intern|:25|550/);
+  });
+});
+
+describe("renderEventEmail – Empfaenger-Felder (To/Cc/Bcc)", () => {
+  afterEach(() => {
+    delete process.env.MAIL_ALLOWED_DOMAINS;
+  });
+
+  it("filtert ungueltige + fremde Domains, dedupliziert, lowercased (CC)", () => {
+    process.env.MAIL_ALLOWED_DOMAINS = "credo-gruppe.de";
+    const { rendered } = renderEventEmail(
+      template({ recipientTo: "a@credo-gruppe.de", recipientCc: "Chef@Credo-Gruppe.DE, chef@credo-gruppe.de, kaputt, extern@evil.com" }),
+      "weekly-checkin-reminder",
+      { email: "a@credo-gruppe.de", name: "X" },
+    );
+    expect(rendered).not.toBeNull();
+    expect(rendered!.cc).toBe("chef@credo-gruppe.de"); // dedup + lowercase, evil/kaputt raus
+  });
+
+  it("skipReason wenn kein gueltiger Empfaenger uebrig bleibt", () => {
+    process.env.MAIL_ALLOWED_DOMAINS = "credo-gruppe.de";
+    const { rendered, skipReason } = renderEventEmail(
+      template({ recipientTo: "extern@evil.com" }),
+      "weekly-checkin-reminder",
+      { email: "x", name: "X" },
+    );
+    expect(rendered).toBeNull();
+    expect(skipReason).toBeTruthy();
   });
 });

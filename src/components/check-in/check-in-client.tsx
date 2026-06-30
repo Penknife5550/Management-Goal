@@ -9,14 +9,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { senden } from "@/lib/client";
-import type { Ampel } from "@/lib/goals";
+import { AMPEL_META, type Ampel } from "@/lib/goals";
 import type { ZielDTO } from "@/lib/types";
-
-const AMPELN: { wert: Ampel; klasse: string; label: string }[] = [
-  { wert: "GRUEN", klasse: "bg-status-gruen-text text-white", label: "Auf Kurs" },
-  { wert: "GELB", klasse: "bg-status-gelb text-foreground", label: "Wackelig" },
-  { wert: "ROT", klasse: "bg-status-rot text-white", label: "Kritisch" },
-];
 
 interface LeadEdit {
   id: string;
@@ -207,7 +201,7 @@ export function CheckInClient() {
         <div className="mt-4">
           <p className="mb-1.5 text-sm font-medium">Wie steht die WIG?</p>
           <div className="flex gap-1.5" role="group" aria-label="Status-Ampel">
-            {AMPELN.map((a) => {
+            {AMPEL_META.map((a) => {
               const aktiv = w.ampel === a.wert;
               return (
                 <button

@@ -18,3 +18,9 @@ export const COUNTDOWN_WARN_TAGE = 7;
 // (ersatzweise die Anlage) so viele Tage zurueckliegt. Einzige Quelle fuer UI
 // (Stale-Badge) und Server (Reminder-Auswahl).
 export const CHECKIN_FAELLIG_TAGE = 7;
+
+// Retention: Aufbewahrung der Mail-/Reminder-Protokolle (DSGVO + unbegrenztes
+// Wachstum vermeiden). EmailLog enthaelt personenbezogene Empfaenger-Adressen.
+// CheckIn-Historie wird bewusst NICHT bereinigt (Adoptions-Trends, Phase 3).
+export const RETENTION_EMAILLOG_TAGE = 180;
+export const RETENTION_DISPATCH_TAGE = 90;

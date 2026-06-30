@@ -287,5 +287,6 @@ model ReminderDispatch {
   createdAt DateTime @default(now())
 
   @@unique([recipient, event, periodKey])
+  @@index([createdAt]) // fuer Retention-Cleanup (where createdAt < cutoff)
   @@map("reminder_dispatch")
 }

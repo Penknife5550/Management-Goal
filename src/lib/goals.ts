@@ -9,6 +9,14 @@ import { COUNTDOWN_WARN_TAGE, WIG_LIMIT } from "./constants";
 export type GoalStatus = "BACKLOG" | "FOKUS" | "ERREICHT" | "ARCHIVIERT";
 export type Ampel = "GRUEN" | "GELB" | "ROT";
 
+// Einzige Quelle fuer Ampel-Label + aktive Button-Klasse (UI). Gruen nutzt das
+// dunklere --color-status-gruen-text fuer ausreichenden Kontrast zu Weiss (WCAG AA).
+export const AMPEL_META: { wert: Ampel; label: string; klasse: string }[] = [
+  { wert: "GRUEN", label: "Auf Kurs", klasse: "bg-status-gruen-text text-white" },
+  { wert: "GELB", label: "Wackelig", klasse: "bg-status-gelb text-foreground" },
+  { wert: "ROT", label: "Kritisch", klasse: "bg-status-rot text-white" },
+];
+
 // Erlaubte Status-Uebergaenge. ARCHIVIERT ist in diesem Slice terminal.
 const ERLAUBTE_UEBERGAENGE: Record<GoalStatus, readonly GoalStatus[]> = {
   BACKLOG: ["FOKUS", "ARCHIVIERT"],

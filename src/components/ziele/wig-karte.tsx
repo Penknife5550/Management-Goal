@@ -2,18 +2,11 @@
 
 import { Archive, CalendarClock, CircleCheck, CornerDownLeft, History, Link2 } from "lucide-react";
 import { istCheckinFaellig, tageSeitCheckin } from "@/lib/check-in";
-import type { Ampel } from "@/lib/goals";
-import { berechneCountdown } from "@/lib/goals";
+import { AMPEL_META, berechneCountdown } from "@/lib/goals";
 import type { ZielAktionen, ZielDTO } from "@/lib/types";
 import { LeadMeasureListe } from "./lead-measure-liste";
 
 type Props = { ziel: ZielDTO } & ZielAktionen;
-
-const AMPELN: { wert: Ampel; klasse: string; label: string }[] = [
-  { wert: "GRUEN", klasse: "bg-status-gruen text-white", label: "Auf Kurs" },
-  { wert: "GELB", klasse: "bg-status-gelb text-foreground", label: "Wackelig" },
-  { wert: "ROT", klasse: "bg-status-rot text-white", label: "Kritisch" },
-];
 
 export function WigKarte({
   ziel,
@@ -63,7 +56,7 @@ export function WigKarte({
 
       {/* Ampel-Auswahl */}
       <div className="mt-3 flex gap-1.5" role="group" aria-label="Status-Ampel">
-        {AMPELN.map((a) => {
+        {AMPEL_META.map((a) => {
           const aktiv = ziel.ampel === a.wert;
           return (
             <button

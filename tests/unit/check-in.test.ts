@@ -4,7 +4,7 @@
 // ============================================================
 import { describe, expect, it } from "vitest";
 import { CHECKIN_FAELLIG_TAGE } from "../../src/lib/constants";
-import { berechneWin, istCheckinFaellig, tageSeitCheckin } from "../../src/lib/check-in";
+import { berechneWin, istCheckinFaellig, pruefeCheckinScope, tageSeitCheckin } from "../../src/lib/check-in";
 
 const JETZT = new Date("2026-06-29T12:00:00.000Z");
 const vorTagen = (n: number) => new Date(JETZT.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
@@ -68,5 +68,27 @@ describe("berechneWin (Small-Wins)", () => {
   it("hatFortschritt nur, wenn irgendeine Dimension zulegt", () => {
     expect(berechneWin({ ampelAlt: "GELB", ampelNeu: "GELB", fortschrittAlt: 50, fortschrittNeu: 50, ...ohneLeads }).hatFortschritt).toBe(false);
     expect(berechneWin({ ampelAlt: "GELB", ampelNeu: "GRUEN", fortschrittAlt: 50, fortschrittNeu: 50, ...ohneLeads }).hatFortschritt).toBe(true);
+  });
+});
+
+describe("pruefeCheckinScope (IDOR-Barriere)", () => {
+  const fokus = [
+    { id: "g1", leadIds: ["l1", "l2"] },
+    { id: "g2", leadIds: [] },
+  ];
+
+  it("laesst eigene FOKUS-WIGs mit eigenen Leads durch", () => {
+    const r = pruefeCheckinScope([{ goalId: "g1", leads: [{ id: "l1" }] }, { goalId: "g2", leads: [] }], fokus);
+    expect(r.ok).toBe(true);
+  });
+
+  it("lehnt fremde/nicht-aktive WIG ab", () => {
+    const r = pruefeCheckinScope([{ goalId: "fremd", leads: [] }], fokus);
+    expect(r).toEqual({ ok: false, fehler: "Ungueltige oder nicht aktive WIG." });
+  });
+
+  it("lehnt fremde Lead-ID (anderer WIG) ab", () => {
+    const r = pruefeCheckinScope([{ goalId: "g2", leads: [{ id: "l1" }] }], fokus);
+    expect(r).toEqual({ ok: false, fehler: "Lead Measure gehoert nicht zur WIG." });
   });
 });

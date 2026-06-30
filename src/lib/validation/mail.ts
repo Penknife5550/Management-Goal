@@ -27,7 +27,13 @@ export const smtpConfigSchema = z.object({
   // Leerer/maskierter Wert = unveraendert lassen (Route entscheidet).
   password: z.string().max(500).default(""),
   fromEmail: optionaleEmail("Absender-Adresse"),
-  fromName: z.string().trim().max(255).default("CREDO Fuehrungs-Cockpit"),
+  // CRLF entfernen: fromName fliesst roh in den From-Header (Header-Injection-Schutz).
+  fromName: z
+    .string()
+    .trim()
+    .max(255)
+    .default("CREDO Fuehrungs-Cockpit")
+    .transform((v) => v.replace(/[\r\n]+/g, " ")),
   replyToEmail: optionaleEmail("Antwort-an-Adresse"),
   isActive: z.boolean().default(false),
 });
