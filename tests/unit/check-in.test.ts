@@ -4,7 +4,7 @@
 // ============================================================
 import { describe, expect, it } from "vitest";
 import { CHECKIN_FAELLIG_TAGE } from "../../src/lib/constants";
-import { istCheckinFaellig, tageSeitCheckin } from "../../src/lib/check-in";
+import { berechneWin, istCheckinFaellig, tageSeitCheckin } from "../../src/lib/check-in";
 
 const JETZT = new Date("2026-06-29T12:00:00.000Z");
 const vorTagen = (n: number) => new Date(JETZT.getTime() - n * 24 * 60 * 60 * 1000).toISOString();
@@ -36,5 +36,37 @@ describe("istCheckinFaellig", () => {
   it("neu angelegte WIG ohne Check-in ist erst nach der Schwelle faellig", () => {
     expect(istCheckinFaellig(null, vorTagen(2), JETZT)).toBe(false);
     expect(istCheckinFaellig(null, vorTagen(CHECKIN_FAELLIG_TAGE), JETZT)).toBe(true);
+  });
+});
+
+describe("berechneWin (Small-Wins)", () => {
+  const ohneLeads = { leads: [] as { beschreibung: string; zielwert: number; istwertAlt: number; istwertNeu: number }[] };
+
+  it("zaehlt nur positiven Fortschritts-Zuwachs", () => {
+    expect(berechneWin({ ampelAlt: "GELB", ampelNeu: "GELB", fortschrittAlt: 20, fortschrittNeu: 60, ...ohneLeads }).fortschrittDelta).toBe(40);
+    expect(berechneWin({ ampelAlt: "GELB", ampelNeu: "GELB", fortschrittAlt: 60, fortschrittNeu: 40, ...ohneLeads }).fortschrittDelta).toBe(0);
+  });
+
+  it("erkennt verbesserte Ampel (ROT->GELB->GRUEN), nicht aber Verschlechterung", () => {
+    expect(berechneWin({ ampelAlt: "ROT", ampelNeu: "GRUEN", fortschrittAlt: 0, fortschrittNeu: 0, ...ohneLeads }).ampelVerbessert).toBe(true);
+    expect(berechneWin({ ampelAlt: "GRUEN", ampelNeu: "ROT", fortschrittAlt: 0, fortschrittNeu: 0, ...ohneLeads }).ampelVerbessert).toBe(false);
+    expect(berechneWin({ ampelAlt: "GELB", ampelNeu: "GELB", fortschrittAlt: 0, fortschrittNeu: 0, ...ohneLeads }).ampelVerbessert).toBe(false);
+  });
+
+  it("listet in diesem Check-in NEU erfuellte Lead Measures", () => {
+    const w = berechneWin({
+      ampelAlt: "GELB", ampelNeu: "GELB", fortschrittAlt: 0, fortschrittNeu: 0,
+      leads: [
+        { beschreibung: "Neu erfuellt", zielwert: 5, istwertAlt: 3, istwertNeu: 5 },
+        { beschreibung: "Schon vorher erfuellt", zielwert: 2, istwertAlt: 2, istwertNeu: 2 },
+        { beschreibung: "Noch offen", zielwert: 5, istwertAlt: 1, istwertNeu: 3 },
+      ],
+    });
+    expect(w.leadsErfuellt).toEqual(["Neu erfuellt"]);
+  });
+
+  it("hatFortschritt nur, wenn irgendeine Dimension zulegt", () => {
+    expect(berechneWin({ ampelAlt: "GELB", ampelNeu: "GELB", fortschrittAlt: 50, fortschrittNeu: 50, ...ohneLeads }).hatFortschritt).toBe(false);
+    expect(berechneWin({ ampelAlt: "GELB", ampelNeu: "GRUEN", fortschrittAlt: 50, fortschrittNeu: 50, ...ohneLeads }).hatFortschritt).toBe(true);
   });
 });

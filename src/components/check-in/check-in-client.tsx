@@ -33,6 +33,15 @@ interface WigEdit {
   leads: LeadEdit[];
 }
 
+// Small-Win je WIG (vom Server berechnet: Delta dieses Check-ins).
+interface WigWin {
+  titel: string;
+  fortschrittDelta: number;
+  ampelVerbessert: boolean;
+  leadsErfuellt: string[];
+  hatFortschritt: boolean;
+}
+
 function ausDTO(z: ZielDTO): WigEdit {
   return {
     goalId: z.id,
@@ -54,7 +63,7 @@ export function CheckInClient() {
   const [schritt, setSchritt] = useState(0);
   const [fehler, setFehler] = useState<string | null>(null);
   const [speichert, setSpeichert] = useState(false);
-  const [fertig, setFertig] = useState(false);
+  const [wins, setWins] = useState<WigWin[] | null>(null);
 
   useEffect(() => {
     senden<ZielDTO[]>("/api/goals", "GET")
@@ -82,7 +91,7 @@ export function CheckInClient() {
     setSpeichert(true);
     setFehler(null);
     try {
-      await senden("/api/check-in", "POST", {
+      const res = await senden<{ wins: WigWin[] }>("/api/check-in", "POST", {
         items: wigs.map((w) => ({
           goalId: w.goalId,
           ampel: w.ampel,
@@ -90,7 +99,7 @@ export function CheckInClient() {
           leads: w.leads.map((l) => ({ id: l.id, istwert: l.istwert })),
         })),
       });
-      setFertig(true);
+      setWins(res.wins);
     } catch (e) {
       setFehler((e as Error).message);
     } finally {
@@ -101,16 +110,51 @@ export function CheckInClient() {
   if (fehler && !wigs) return <p className="text-sm text-credo-rot">{fehler}</p>;
   if (!wigs) return <Skeleton className="h-72 w-full" />;
 
-  // Abschluss-Moment (Peak-End)
-  if (fertig) {
+  // Abschluss-Moment (Peak-End) mit Small-Wins / Progress-Feedback (Amabile).
+  if (wins) {
+    const echteWins = wins.filter((w) => w.hatFortschritt);
+    const gefeiert = echteWins.length > 0;
     return (
-      <div className="rounded-lg border border-status-gruen bg-status-gruen/10 p-8 text-center">
-        <PartyPopper className="mx-auto h-10 w-10 text-status-gruen-text" aria-hidden="true" />
+      <div
+        className={`rounded-lg border p-8 text-center ${
+          gefeiert ? "border-status-gruen bg-status-gruen/10" : "border-border bg-muted/40"
+        }`}
+      >
+        {gefeiert ? (
+          <PartyPopper className="mx-auto h-10 w-10 text-status-gruen-text" aria-hidden="true" />
+        ) : (
+          <CheckCircle2 className="mx-auto h-10 w-10 text-muted-foreground" aria-hidden="true" />
+        )}
         <h2 className="mt-3 text-lg font-medium">Check-in abgeschlossen</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {wigs.length} {wigs.length === 1 ? "WIG" : "WIGs"} aktualisiert. Bis nächste Woche – Fokus halten.
-        </p>
-        <Link href="/ziele" className="mt-5 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground">
+
+        {gefeiert ? (
+          <>
+            <p className="mt-1 text-sm text-muted-foreground">Diese Woche geschafft:</p>
+            <ul className="mx-auto mt-3 max-w-sm space-y-2 text-left">
+              {echteWins.map((w) => (
+                <li key={w.titel} className="rounded-md bg-card px-3 py-2">
+                  <p className="text-sm font-medium leading-snug">{w.titel}</p>
+                  <p className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-status-gruen-text">
+                    {w.fortschrittDelta > 0 && <span>+{w.fortschrittDelta}% Fortschritt</span>}
+                    {w.ampelVerbessert && <span>Ampel verbessert</span>}
+                    {w.leadsErfuellt.map((b) => (
+                      <span key={b}>Lead „{b}“ erfüllt</span>
+                    ))}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Kein neuer Fortschritt diese Woche – auch Dranbleiben zählt. Nächste Woche wieder.
+          </p>
+        )}
+
+        <Link
+          href="/ziele"
+          className="mt-5 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground"
+        >
           Zurück zum Cockpit
         </Link>
       </div>

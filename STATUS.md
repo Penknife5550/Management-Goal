@@ -98,6 +98,7 @@ Macht aus dem Board ein täglich/wöchentlich genutztes Werkzeug (Adoption-Treib
    → **SMTP-Fundament + Wochen-Reminder bereits gebaut** (siehe Abschnitt 8).
 3. **Q2-Schutz**: Funktion, um „wichtig, nicht dringend"-Zeit aktiv zu blocken.
 4. **Small-Wins / Progress-Feedback** (Amabile): sichtbares Feiern kleiner Fortschritte.
+   → **gebaut** als Teil des Check-in-Abschlusses (Abschnitt 9).
 5. **Erstes KI-Feature: Eisenhower-Vorschlag** im Accept/Reject-Muster mit sichtbarer
    Confidence (KI schlägt vor, überschreibt nie). Anbindung: n8n + Ollama lokal (PII-sicher),
    asynchron, mit 3-Schichten-Webhook-Loop-Schutz (siehe PLAN.md Abschnitt 5).
@@ -180,5 +181,10 @@ Das 4DX-Kadenzritual, das den Reminder-Kreis schließt. Migration: `check_in_his
 **Verifiziert**: `tsc` sauber · Tests **63/63** (+6 Check-in) · Build grün · Runtime-Smoke:
 Check-in setzt Ampel/Fortschritt/Lead + `lastCheckinAt` + 1 Snapshot; Scope & Validierung → 400.
 
-**Nächste Phase-2-Bausteine** (offen): Q2-Schutz (Zeitblock) · Small-Wins/Progress-Feedback ·
-erstes KI-Feature (Eisenhower-Vorschlag, Accept/Reject).
+**Small-Wins / Progress-Feedback** (Amabile, in den Check-in integriert): Der Abschluss-Screen
+zeigt den konkreten Fortschritt DIESES Check-ins je WIG — Fortschritts-Plus, verbesserte Ampel,
+neu erfüllte Lead Measures (`berechneWin`, Delta gespeicherter Stand → Eingabe). Ehrlich: ohne
+Fortschritt ruhige Ermutigung statt Fake-Feier. API liefert `wins` in der Check-in-Antwort.
+
+**Nächste Phase-2-Bausteine** (offen): Q2-Schutz (Zeitblock) · erstes KI-Feature
+(Eisenhower-Vorschlag, Accept/Reject).

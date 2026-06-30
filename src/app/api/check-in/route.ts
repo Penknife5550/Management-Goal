@@ -9,8 +9,10 @@ import { randomUUID } from "crypto";
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
+import { berechneWin } from "@/lib/check-in";
 import { prisma } from "@/lib/db";
 import { type GoalMitLeads, toZielDTO } from "@/lib/goal-service";
+import type { Ampel } from "@/lib/goals";
 import { checkInSchema } from "@/lib/validation/goal";
 
 export async function POST(request: NextRequest) {
@@ -22,20 +24,47 @@ export async function POST(request: NextRequest) {
       return jsonError(parsed.error.issues[0]?.message ?? "Ungueltige Eingabe.", 400);
     }
 
-    // Scope: nur eigene WIGs im FOKUS sind eincheckbar. Erlaubte Goal-/Lead-IDs laden.
+    // Vollen aktuellen Stand der eigenen FOKUS-WIGs laden — fuer Scope-Pruefung UND
+    // fuer die Win-Berechnung (Delta gespeicherter Stand -> Check-in-Eingabe).
     const fokus = await prisma.goal.findMany({
       where: { ownerId: nutzer.id, status: "FOKUS" },
-      include: { leadMeasures: { select: { id: true } } },
+      include: { leadMeasures: true },
     });
-    const erlaubteLeads = new Map(fokus.map((g) => [g.id, new Set(g.leadMeasures.map((l) => l.id))]));
+    const perGoal = new Map(fokus.map((g) => [g.id, g]));
 
     for (const item of parsed.data.items) {
-      const leads = erlaubteLeads.get(item.goalId);
-      if (!leads) return jsonError("Ungueltige oder nicht aktive WIG.", 400);
-      if (item.leads.some((l) => !leads.has(l.id))) {
+      const goal = perGoal.get(item.goalId);
+      if (!goal) return jsonError("Ungueltige oder nicht aktive WIG.", 400);
+      const leadIds = new Set(goal.leadMeasures.map((l) => l.id));
+      if (item.leads.some((l) => !leadIds.has(l.id))) {
         return jsonError("Lead Measure gehoert nicht zur WIG.", 400);
       }
     }
+
+    // Small-Wins VOR dem Update berechnen (alter Stand vs. Eingabe).
+    const wins = parsed.data.items.map((item) => {
+      const goal = perGoal.get(item.goalId)!;
+      const leadAlt = new Map(goal.leadMeasures.map((l) => [l.id, l]));
+      const leads = item.leads.map((l) => {
+        const alt = leadAlt.get(l.id)!;
+        return {
+          beschreibung: alt.beschreibung,
+          zielwert: alt.zielwert,
+          istwertAlt: alt.istwert,
+          istwertNeu: l.istwert,
+        };
+      });
+      return {
+        titel: goal.titel,
+        ...berechneWin({
+          ampelAlt: goal.ampel as Ampel,
+          ampelNeu: item.ampel,
+          fortschrittAlt: goal.fortschritt,
+          fortschrittNeu: item.fortschritt,
+          leads,
+        }),
+      };
+    });
 
     const sessionId = randomUUID();
     const aktualisiert = await prisma.$transaction(async (tx) => {
@@ -63,7 +92,7 @@ export async function POST(request: NextRequest) {
       return ergebnis;
     });
 
-    return jsonOk({ sessionId, ziele: aktualisiert.map(toZielDTO) });
+    return jsonOk({ sessionId, ziele: aktualisiert.map(toZielDTO), wins });
   } catch (fehler) {
     console.error("POST /api/check-in fehlgeschlagen:", fehler);
     return jsonError("Check-in konnte nicht gespeichert werden.", 500);
