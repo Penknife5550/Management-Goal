@@ -32,6 +32,24 @@ export function requireAdminToken(request: NextRequest): ReturnType<typeof jsonE
   return pruefeSecret("ADMIN_TOKEN", request.headers.get("x-admin-token") ?? "");
 }
 
+// Wrapper fuer admin-geschuetzte Routen: Token-Guard + einheitliches try/catch/500.
+// Spart den wiederholten Vorspann in jeder Settings-Route.
+export function withAdmin(
+  name: string,
+  handler: (request: NextRequest) => Promise<Response> | Response,
+): (request: NextRequest) => Promise<Response> {
+  return async (request) => {
+    const verweigert = requireAdminToken(request);
+    if (verweigert) return verweigert;
+    try {
+      return await handler(request);
+    } catch (fehler) {
+      console.error(`${name} fehlgeschlagen:`, fehler);
+      return jsonError("Interner Serverfehler.", 500);
+    }
+  };
+}
+
 // Cron-Route: Authorization: Bearer <CRON_SECRET>.
 export function requireCronSecret(request: NextRequest): ReturnType<typeof jsonError> | null {
   const header = request.headers.get("authorization") ?? "";

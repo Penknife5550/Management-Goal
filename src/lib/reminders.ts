@@ -20,6 +20,9 @@ export const STALE_TAGE = CHECKIN_FAELLIG_TAGE;
 const TAG_MS = 24 * 60 * 60 * 1000;
 const REMINDER_EVENT = "weekly-checkin-reminder";
 const SWITCH_KEY = "remindersGloballyEnabled";
+// Begrenzte Parallelitaet beim Versand (passt zu maxConnections im SMTP-Pool):
+// der Cron blockiert sonst sequenziell auf jedem SMTP-Roundtrip.
+const MAIL_BATCH = 3;
 
 // ISO-8601-Kalenderwoche als Schluessel, z.B. "2026-W27" (Donnerstag-Regel).
 // Dient als Idempotenz-Periode: max. eine Reminder-Mail je Empfaenger und Woche.
@@ -126,28 +129,21 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
 
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
   const periodKey = isoWeekKey(jetzt);
-  let versendet = 0;
-  let uebersprungen = 0;
-  let fehlgeschlagen = 0;
 
-  for (const b of buendel) {
-    const empfaenger = b.email.toLowerCase();
-    const reservierung = { recipient: empfaenger, event: REMINDER_EVENT, periodKey };
+  // Verarbeitet EINEN Owner: reservieren (idempotent), senden, bei FAIL freigeben.
+  // Jeder Empfaenger ist unabhaengig -> begrenzt-parallel ausfuehrbar.
+  async function verarbeiteOwner(b: OwnerBuendel): Promise<"versendet" | "uebersprungen" | "fehlgeschlagen"> {
+    const reservierung = { recipient: b.email.toLowerCase(), event: REMINDER_EVENT, periodKey };
 
-    // Reservierung VOR dem Versand: der Unique-Constraint (recipient,event,periodKey)
-    // verhindert Doppelversand auch bei parallelen Cron-Laeufen. P2002 = diese Woche
-    // bereits bedient -> ueberspringen. Ein ANDERER DB-Fehler (z.B. Connection-Drop)
-    // darf NICHT den ganzen Lauf abbrechen -> nur diesen Empfaenger ueberspringen.
+    // Reservierung VOR dem Versand: der Unique-Constraint verhindert Doppelversand
+    // auch bei parallelen Cron-Laeufen. P2002 = diese Woche bereits bedient. Ein
+    // ANDERER DB-Fehler darf nur DIESEN Empfaenger ueberspringen, nicht den Lauf.
     try {
       await prisma.reminderDispatch.create({ data: reservierung });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-        uebersprungen++;
-      } else {
-        console.error("[Reminder] Reservierung fehlgeschlagen:", e instanceof Error ? e.message : e);
-        fehlgeschlagen++;
-      }
-      continue;
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return "uebersprungen";
+      console.error("[Reminder] Reservierung fehlgeschlagen:", e instanceof Error ? e.message : e);
+      return "fehlgeschlagen";
     }
 
     const ergebnis = await sendEventEmail(REMINDER_EVENT, {
@@ -157,16 +153,25 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
       wigListe: b.titel.join(", "),
       link: `${appUrl}/check-in`,
     });
-    if (ergebnis.status === "SENT") {
-      versendet++;
-    } else {
-      // Versand fehlgeschlagen (FAILED) ist NICHT "zugestellt": Reservierung wieder
-      // freigeben, damit ein erneuter Cron-Lauf es nochmal versucht (kein Doppelversand,
-      // da nur SENT zaehlt und der Unique-Constraint weiter schuetzt).
-      await prisma.reminderDispatch
-        .deleteMany({ where: reservierung })
-        .catch((e) => console.error("[Reminder] Reservierung-Rollback fehlgeschlagen:", e));
-      fehlgeschlagen++;
+    if (ergebnis.status === "SENT") return "versendet";
+
+    // FAILED ist NICHT "zugestellt": Reservierung freigeben, damit ein erneuter
+    // Cron-Lauf es nochmal versucht (weiter doppelversand-sicher, nur SENT zaehlt).
+    await prisma.reminderDispatch
+      .deleteMany({ where: reservierung })
+      .catch((e) => console.error("[Reminder] Reservierung-Rollback fehlgeschlagen:", e));
+    return "fehlgeschlagen";
+  }
+
+  let versendet = 0;
+  let uebersprungen = 0;
+  let fehlgeschlagen = 0;
+  for (let i = 0; i < buendel.length; i += MAIL_BATCH) {
+    const ergebnisse = await Promise.all(buendel.slice(i, i + MAIL_BATCH).map(verarbeiteOwner));
+    for (const e of ergebnisse) {
+      if (e === "versendet") versendet++;
+      else if (e === "uebersprungen") uebersprungen++;
+      else fehlgeschlagen++;
     }
   }
 

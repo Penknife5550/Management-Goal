@@ -245,3 +245,23 @@ CSP-Header gesetzt, Reminder/Cleanup laufen, fromName-Umbruch entfernt.
 **Offen (separater Aufräum-Commit, kein Blocker)**: M1 Reminder-Perf (Config/Template vor der
 Schleife + Batch-Versand), M7 (Enum-Single-Source via `z.nativeEnum`, notify()-Kanal-Grenze),
 M8 (`parseBody`/`withAdmin`-Route-Helfer); diverse MINORs (P2025→409, decrypt-Fehler im Test).
+
+## 12. Aufräum-Backlog M1/M7/M8 (gebaut)
+
+Nicht-blockierende Review-Punkte aus dem Phase-2-Gesamt-Review.
+- M1 (Performance): Reminder-Versand begrenzt-parallel (`MAIL_BATCH=3`, passend zum
+  SMTP-Pool) statt sequenziell blockierend — bounded Wall-Time bei vielen Empfängern.
+- M7 (Architektur): Enum-Single-Source — `AMPEL_WERTE`/`GOAL_STATUS_WERTE` in `goals.ts`;
+  Typ UND Zod (`validation/goal.ts`) leiten sich daraus ab (keine Dreifachpflege).
+  Scope-Konsistenz bereits via `pruefeCheckinScope` (Blocker-Batch). Channel-Abstraktion
+  (`notify()`) bewusst NICHT spekulativ vorgezogen — Seam entsteht mit dem In-App-Center.
+- M8 (Wartbarkeit): `parseBody(request, schema)` in `api.ts` + `withAdmin(name, handler)`
+  in `admin-guard.ts`. Alle 6 Settings-Routen + check-in/q2 nutzen sie → Guard-/try-catch-/
+  safeParse-Boilerplate zentralisiert.
+
+**Verifiziert**: `tsc` sauber · Tests **86/86** · Build grün · Regressions-Smoke (Port 3781):
+alle Settings-Routen 200, Validierung 400, Cron batched versendet:1, Q2 CRUD 200, SMTP maskiert.
+
+**Umgebungs-Hinweis**: `next start` warf danach intermittierend `ERR_INVALID_PACKAGE_CONFIG`
+(Commander) — Node-24.12/Next-15.5-Flakiness im CLI-Bootstrap, NICHT der App-Code (Datei ist
+valide, Build/Tests grün, ein vorheriger Start lief). Bei Bedarf `npm ci` / Start erneut.

@@ -4,9 +4,8 @@
 // PUT  - SMTP-Konfiguration speichern (Passwort verschluesselt)
 // Schutz: ADMIN_TOKEN (Uebergang bis RBAC, Phase 4).
 // ============================================================
-import type { NextRequest } from "next/server";
-import { jsonError, jsonOk } from "@/lib/api";
-import { requireAdminToken } from "@/lib/admin-guard";
+import { jsonError, jsonOk, parseBody } from "@/lib/api";
+import { withAdmin } from "@/lib/admin-guard";
 import { prisma } from "@/lib/db";
 import { encrypt, isEncryptionConfigured } from "@/lib/encryption";
 import { smtpConfigSchema } from "@/lib/validation/mail";
@@ -25,30 +24,20 @@ const DEFAULTS = {
   isActive: false,
 };
 
-export async function GET(request: NextRequest) {
-  const verweigert = requireAdminToken(request);
-  if (verweigert) return verweigert;
-  try {
-    const config = await prisma.smtpConfig.findUnique({ where: { id: "default" } });
-    if (!config) return jsonOk({ ...DEFAULTS, password: "", encryptionConfigured: isEncryptionConfigured() });
-    // Passwort niemals im Klartext herausgeben.
-    const { password, ...rest } = config;
-    return jsonOk({ ...rest, password: password ? MASKE : "", encryptionConfigured: isEncryptionConfigured() });
-  } catch (fehler) {
-    console.error("GET /api/settings/smtp fehlgeschlagen:", fehler);
-    return jsonError("SMTP-Konfiguration konnte nicht geladen werden.", 500);
-  }
-}
+export const GET = withAdmin("GET /api/settings/smtp", async () => {
+  const config = await prisma.smtpConfig.findUnique({ where: { id: "default" } });
+  if (!config) return jsonOk({ ...DEFAULTS, password: "", encryptionConfigured: isEncryptionConfigured() });
+  // Passwort niemals im Klartext herausgeben.
+  const { password, ...rest } = config;
+  return jsonOk({ ...rest, password: password ? MASKE : "", encryptionConfigured: isEncryptionConfigured() });
+});
 
-export async function PUT(request: NextRequest) {
-  const verweigert = requireAdminToken(request);
-  if (verweigert) return verweigert;
-  try {
-    const body = await request.json().catch(() => null);
-    const parsed = smtpConfigSchema.safeParse(body);
-    if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Ungueltige Eingabe.", 400);
-    const d = parsed.data;
+export const PUT = withAdmin("PUT /api/settings/smtp", async (request) => {
+  const p = await parseBody(request, smtpConfigSchema);
+  if (!p.ok) return p.response;
+  const d = p.data;
 
+  {
     // Bei Aktivierung sind Kern-Felder Pflicht.
     if (d.isActive) {
       if (!d.host) return jsonError("SMTP-Host ist ein Pflichtfeld.", 400);
@@ -95,8 +84,5 @@ export async function PUT(request: NextRequest) {
 
     const { password, ...rest } = gespeichert;
     return jsonOk({ ...rest, password: password ? MASKE : "", encryptionConfigured: isEncryptionConfigured() });
-  } catch (fehler) {
-    console.error("PUT /api/settings/smtp fehlgeschlagen:", fehler);
-    return jsonError("SMTP-Konfiguration konnte nicht gespeichert werden.", 500);
   }
-}
+});

@@ -3,9 +3,10 @@
 // Server-seitige Eingabe-Validierung (Zod). Deutsche Fehlermeldungen.
 // ============================================================
 import { z } from "zod";
+import { AMPEL_WERTE, GOAL_STATUS_WERTE } from "@/lib/goals";
 
-const STATUS = ["BACKLOG", "FOKUS", "ERREICHT", "ARCHIVIERT"] as const;
-const AMPEL = ["GRUEN", "GELB", "ROT"] as const;
+const STATUS = GOAL_STATUS_WERTE;
+const AMPEL = AMPEL_WERTE;
 
 // Quick-Add: bewusst minimal (eine Zeile, Tastatur-First).
 export const goalQuickAddSchema = z.object({

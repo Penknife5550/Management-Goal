@@ -5,7 +5,7 @@
 // Owner-Scope via getAktuellerNutzer (kein Admin-Token: Nutzerinhalt wie Ziele).
 // ============================================================
 import type { NextRequest } from "next/server";
-import { jsonError, jsonOk } from "@/lib/api";
+import { jsonError, jsonOk, parseBody } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findeZielFuerNutzer } from "@/lib/goal-service";
@@ -30,10 +30,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const nutzer = getAktuellerNutzer();
-    const body = await request.json().catch(() => null);
-    const parsed = q2BlockSchema.safeParse(body);
-    if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Ungueltige Eingabe.", 400);
-    const d = parsed.data;
+    const p = await parseBody(request, q2BlockSchema);
+    if (!p.ok) return p.response;
+    const d = p.data;
 
     // Verknuepfte WIG muss dem Nutzer gehoeren.
     if (d.goalId && !(await findeZielFuerNutzer(d.goalId, nutzer.id))) {

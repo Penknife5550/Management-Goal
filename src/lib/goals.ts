@@ -6,8 +6,12 @@
 // ============================================================
 import { COUNTDOWN_WARN_TAGE, WIG_LIMIT } from "./constants";
 
-export type GoalStatus = "BACKLOG" | "FOKUS" | "ERREICHT" | "ARCHIVIERT";
-export type Ampel = "GRUEN" | "GELB" | "ROT";
+// App-seitige Single-Source der Enum-Werte (spiegeln die Prisma-Enums). Typ UND
+// Zod-Validierung (validation/goal.ts) leiten sich hieraus ab — keine Dreifachpflege.
+export const GOAL_STATUS_WERTE = ["BACKLOG", "FOKUS", "ERREICHT", "ARCHIVIERT"] as const;
+export const AMPEL_WERTE = ["GRUEN", "GELB", "ROT"] as const;
+export type GoalStatus = (typeof GOAL_STATUS_WERTE)[number];
+export type Ampel = (typeof AMPEL_WERTE)[number];
 
 // Einzige Quelle fuer Ampel-Label + aktive Button-Klasse (UI). Gruen nutzt das
 // dunklere --color-status-gruen-text fuer ausreichenden Kontrast zu Weiss (WCAG AA).

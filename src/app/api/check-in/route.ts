@@ -7,7 +7,7 @@
 // ============================================================
 import { randomUUID } from "crypto";
 import type { NextRequest } from "next/server";
-import { jsonError, jsonOk } from "@/lib/api";
+import { jsonError, jsonOk, parseBody } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
 import { berechneWin, pruefeCheckinScope } from "@/lib/check-in";
 import { prisma } from "@/lib/db";
@@ -18,11 +18,9 @@ import { checkInSchema } from "@/lib/validation/goal";
 export async function POST(request: NextRequest) {
   try {
     const nutzer = getAktuellerNutzer();
-    const body = await request.json().catch(() => null);
-    const parsed = checkInSchema.safeParse(body);
-    if (!parsed.success) {
-      return jsonError(parsed.error.issues[0]?.message ?? "Ungueltige Eingabe.", 400);
-    }
+    const p = await parseBody(request, checkInSchema);
+    if (!p.ok) return p.response;
+    const eingabe = p.data;
 
     // Vollen aktuellen Stand der eigenen FOKUS-WIGs laden — fuer Scope-Pruefung UND
     // fuer die Win-Berechnung (Delta gespeicherter Stand -> Check-in-Eingabe).
@@ -34,13 +32,13 @@ export async function POST(request: NextRequest) {
 
     // Owner-/FOKUS-Scope serverseitig erzwingen (reine, getestete Logik).
     const scope = pruefeCheckinScope(
-      parsed.data.items,
+      eingabe.items,
       fokus.map((g) => ({ id: g.id, leadIds: g.leadMeasures.map((l) => l.id) })),
     );
     if (!scope.ok) return jsonError(scope.fehler, 400);
 
     // Small-Wins VOR dem Update berechnen (alter Stand vs. Eingabe).
-    const wins = parsed.data.items.map((item) => {
+    const wins = eingabe.items.map((item) => {
       const goal = perGoal.get(item.goalId)!;
       const leadAlt = new Map(goal.leadMeasures.map((l) => [l.id, l]));
       const leads = item.leads.map((l) => {
@@ -67,7 +65,7 @@ export async function POST(request: NextRequest) {
     const sessionId = randomUUID();
     const aktualisiert = await prisma.$transaction(async (tx) => {
       const ergebnis: GoalMitLeads[] = [];
-      for (const item of parsed.data.items) {
+      for (const item of eingabe.items) {
         for (const lead of item.leads) {
           await tx.leadMeasure.update({ where: { id: lead.id }, data: { istwert: lead.istwert } });
         }
