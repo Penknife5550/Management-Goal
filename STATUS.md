@@ -1,7 +1,7 @@
 # STATUS & Übergabe — Führungs-Cockpit
 
 > **AKTUELLER STAND: 2026-07-01 — Phase 2 komplett + Aufgaben-/Eisenhower-Modul (Schritte 1–4).**
-> Letzter Commit: `b6ae939`. Branch `main`. Working Tree sauber. (Noch nicht gepusht.)
+> Letzter Commit (lokal = Remote): `e55001a` (Feature-Landung `b6ae939`). Branch `main`. Working Tree sauber.
 > GoLive-Status: 🟢 (kein Critical, keine blockierenden Majors).
 >
 > **Was steht:** Phase 1 (Goal/WIG-Modul) + Phase 2 vollständig — Wochen-Check-in,
@@ -380,7 +380,9 @@ Wichtige Befunde aus dieser Session:
 **Vor Schritt 5 klären** (3 offene Infra-Punkte — sonst kann Schritt 5 nicht scharf gebaut
 werden, der Rest ist vorbereitet):
 1. **n8n-Webhook-Trigger-URL** (Inbound) + Auth — bisher nur die Ollama-URL bekannt.
-   Existiert der n8n-Workflow schon, oder bauen wir den n8n-Teil mit?
+   **Der n8n-Workflow existiert noch NICHT und muss neu gebaut werden** (User bestätigt
+   2026-07-01): Webhook-Trigger (nimmt `{taskId, titel, callbackUrl, jobKey}`) → Ollama-Call
+   (lokales Modell, `format:json`) → HTTP-Callback an das Cockpit. URL/Auth dann festlegen.
 2. **Callback-Erreichbarkeit**: Kann der n8n-Host das Cockpit (`APP_URL`) für den Callback
    erreichen? In Dev ist `localhost:3000` evtl. nicht von außen erreichbar → ggf. Tunnel
    (z. B. cloudflared/ngrok) oder Polling-Fallback (Cockpit fragt n8n/Status nach).
