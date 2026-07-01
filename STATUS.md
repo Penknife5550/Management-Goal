@@ -1,7 +1,7 @@
 # STATUS & Übergabe — Führungs-Cockpit
 
-> **AKTUELLER STAND: 2026-06-30 — Phase 2 ist KOMPLETT.**
-> Letzter Commit (lokal = Remote): `bb34fbf`. Branch `main`. Working Tree sauber.
+> **AKTUELLER STAND: 2026-07-01 — Phase 2 komplett + Aufgaben-/Eisenhower-Modul (Schritte 1–4).**
+> Letzter Commit: `2e97963`. Branch `main`. Working Tree sauber. (Noch nicht gepusht.)
 > GoLive-Status: 🟢 (kein Critical, keine blockierenden Majors).
 >
 > **Was steht:** Phase 1 (Goal/WIG-Modul) + Phase 2 vollständig — Wochen-Check-in,
@@ -10,10 +10,12 @@
 > Details: Abschnitte **8 (SMTP/Reminder) · 9 (Check-in) · 10 (Q2) · 11 (Review+Blocker)
 > · 12 (Aufräum M1/M7/M8)**.
 >
-> **Verifiziert:** `tsc` sauber · Unit-Tests **86/86** · Production-Build grün.
+> **Verifiziert:** `tsc` sauber · Unit-Tests **94/94** · Production-Build grün.
 >
-> **NÄCHSTER SCHRITT (neue Session): KI-Eisenhower-Feature — siehe Abschnitt 13.**
-> Vorher PLANEN/KLÄREN, nicht direkt bauen.
+> **NEU (2026-06-30): Aufgaben-Modul + Eisenhower-Matrix (manuell) gebaut** — Schritte 1–4
+> des KI-Eisenhower-Plans. Siehe **Abschnitt 14**.
+> **NÄCHSTER SCHRITT: KI-Anbindung (Schritt 5) — async via n8n + Ollama.** Offene
+> Infra-Punkte (n8n-Webhook-URL, Callback-Erreichbarkeit, Modellwahl) in Abschnitt 14.
 >
 > ---
 > _Historie unten: Abschnitte 1–7 beschreiben den Phase-1-Stand (2026-06-21)._
@@ -328,3 +330,111 @@ und der Docker-Build (eigene Node-Version) sind nicht betroffen. Bei Bedarf `npm
 ### Referenzen
 PLAN.md (Phase 2 Punkt 5; Phase 6 „n8n + KI-Tiefe"; Abschnitt 5 Loop-Schutz) ·
 RECHERCHE-fuehrungs-cockpit.md · BEWERTUNG-plan-adoption.md · Memory `mail-via-eigenes-smtp`.
+
+## 14. Aufgaben-Modul + Eisenhower-Matrix (gebaut — Schritte 1–4 des KI-Plans)
+
+Die Voraussetzung für KI-Eisenhower: ein schlankes Aufgaben-Modul mit Eisenhower-Matrix.
+Bewusst **erst manuell** (Nutzer setzt wichtig/dringend) — sofort nutzbar, **ohne** KI-Infra.
+Die KI-Anbindung (Schritt 5) legt sich rein additiv oben drauf; die DB-/DTO-Felder dafür
+sind bereits vorhanden. Entscheidung mit User: „Voll: Eisenhower MIT KI" als Ziel, gebaut
+in zwei Schichten (A manuell jetzt, B KI als Nächstes).
+
+**Neue Bausteine**
+- DB: `Task.ownerId` ergänzt (+Relation `TaskOwner`, +`@@index([ownerId, status])`) für
+  Owner-Scope wie bei Goal. Migration `20260630130603_task_owner_scope`. Der Task-Stub war
+  leer → NOT-NULL ohne Default problemlos. `TaskStatus` (TODO/DOING/DONE) und
+  `WebhookIdempotency` existierten bereits.
+- Domäne: `lib/eisenhower.ts` — `berechneQuadrant(important, urgent)→1..4`,
+  `EISENHOWER_QUADRANTEN` (Single-Source: Meta + CREDO-Theme-Farben), `quadrantMeta`,
+  `istKiVorschlagOffen` (für das spätere KI-Badge). `TASK_STATUS_WERTE` als App-Single-Source
+  (Zod leitet sich ab — keine Doppelpflege).
+- API (owner-scoped, nutzt `parseBody`/`jsonOk`/`jsonError`): `GET/POST /api/tasks`,
+  `PATCH/DELETE /api/tasks/[id]`. PATCH setzt bei manueller Quadranten-Änderung
+  `lastModifiedBy=USER` (Schicht 1 des Loop-Schutzes ist damit schon scharf).
+- Service: `lib/task-service.ts` (`findeTaskFuerNutzer` Scope, `toTaskDTO` mit abgeleitetem
+  Quadrant + ai-Feldern). `TaskDTO` in `lib/types.ts`.
+- UI: Seite `/aufgaben` + `aufgaben-client.tsx` — 2×2-Eisenhower-Matrix (Q1 Tun / Q2 Planen /
+  Q3 Delegieren / Q4 Eliminieren), Quick-Add mit Wichtig/Dringend-Toggle + WIG-Verknüpfung,
+  Quadrant-Wechsel über Toggles (kein Drag-and-Drop → kein neuer Tech-Stack), Erledigt-Bereich,
+  optimistische Updates mit Rollback. Nav-Link auf `/ziele` ergänzt.
+- Tests: +8 (`tests/unit/eisenhower.test.ts`) → **94/94** grün.
+
+**Verifiziert**: `tsc` sauber · Unit-Tests **94/94** · Production-Build grün.
+(Runtime-Smoke lokal nur eingeschränkt: die Maschine brauchte ~9 Min Dev-Start / ~100 s
+pro Route-Compile — Umgebungs-Langsamkeit, kein Code-Problem. API-Logik ist über die
+bestehenden Patterns + Unit-Tests abgedeckt; voller Klick-Test bei nächster Gelegenheit.)
+
+### Schritt 5 — KI-Eisenhower (offen, als Nächstes)
+KI ist verfügbar: Ollama **über n8n** unter `http://ki.fes-credo.de:11434/api/generate`.
+Wichtige Befunde aus dieser Session:
+- **PII-Regel**: Am Endpoint liegen lokale Modelle (`qwen2.5:7b`, `qwen3.5:9b`,
+  `qwen3.5:latest`) UND `:cloud`-Modelle (die routen auf `ollama.com`). Für Aufgaben-Inhalte
+  zwingend ein **lokales** Modell, NIE ein `:cloud`-Modell.
+- **Async ist Pflicht**: Direkter `/api/generate`-Call an die lokalen Modelle antwortete von
+  hier aus nicht in 60–90 s. Eine synchrone API-Route würde hängen → Pfad muss async über
+  n8n laufen (deckt sich mit PLAN §5).
+- **3-Schichten-Loop-Schutz**: Schicht 1 (Source-Flag `lastModifiedBy`) ist im PATCH schon
+  gesetzt. Offen: `/api/ai/callback` (idempotent via `WebhookIdempotency`, respond-immediately)
+  + `classify`-Trigger + Accept/Reject-API + KI-Badge in der UI.
+
+**Vor Schritt 5 klären** (3 offene Infra-Punkte — sonst kann Schritt 5 nicht scharf gebaut
+werden, der Rest ist vorbereitet):
+1. **n8n-Webhook-Trigger-URL** (Inbound) + Auth — bisher nur die Ollama-URL bekannt.
+   Existiert der n8n-Workflow schon, oder bauen wir den n8n-Teil mit?
+2. **Callback-Erreichbarkeit**: Kann der n8n-Host das Cockpit (`APP_URL`) für den Callback
+   erreichen? In Dev ist `localhost:3000` evtl. nicht von außen erreichbar → ggf. Tunnel
+   (z. B. cloudflared/ngrok) oder Polling-Fallback (Cockpit fragt n8n/Status nach).
+3. **Modellwahl** (`qwen2.5:7b` vs `qwen3.5:9b`) + Latenztoleranz async.
+
+### Bauplan Schritt 5 (konkret — nach Infra-Klärung direkt umsetzbar)
+Alles Folgende ist rein **additiv** zu Schritt 1–4; nichts Bestehendes wird umgebaut.
+
+**Schema** (`prisma/schema.prisma`): nichts Neues nötig — `Task.aiQuadrantSuggestion/
+aiConfidence/aiReasoning/lastModifiedBy` und `WebhookIdempotency` existieren bereits.
+(Optional: `Task.aiRequestedAt DateTime?` für „KI läuft…"-Anzeige — nur falls gewünscht.)
+
+**ENV neu** (`.env.example` ergänzen): `N8N_EISENHOWER_WEBHOOK_URL` (Inbound-Trigger),
+`AI_CALLBACK_SECRET` (schützt den Callback), `AI_MODEL` (Default `qwen2.5:7b`).
+Ollama-URL kennt n8n selbst; das Cockpit ruft NUR den n8n-Webhook, nie Ollama direkt.
+
+**Lib** (`src/lib/ai-eisenhower.ts`, neu): `baueKlassifizierungsPrompt(titel)` (deutsch,
+`format:json`, Felder important/urgent/quadrant/confidence/reasoning), `jobKey(taskId, titel)`
+(deterministischer Idempotenz-Key = Content-Hash), `parseKiAntwort(json)` (validiert 1..4 /
+0..1, wirft bei Unsinn). Reine Funktionen → unit-testbar ohne n8n.
+
+**API**:
+- `POST /api/tasks/[id]/classify` — owner-scoped; feuert n8n-Webhook mit
+  `{ taskId, titel, callbackUrl: APP_URL+"/api/ai/callback", jobKey }`, antwortet **sofort 202**
+  (respond-immediately, Schicht 3). KEIN Warten auf Ollama.
+- `POST /api/ai/callback` — Secret-geschützt (`AI_CALLBACK_SECRET`, konstantzeit-Vergleich via
+  `pruefeSecret` aus `admin-guard.ts`). Idempotent über `WebhookIdempotency` (key = `jobKey`;
+  vorhanden → 200 ohne Wirkung, Schicht 2). Schreibt NUR `aiQuadrantSuggestion/aiConfidence/
+  aiReasoning` + `lastModifiedBy=AI_OLLAMA` — **überschreibt important/urgent NIE**.
+- `POST /api/tasks/[id]/ai-suggestion/accept` — übernimmt den Vorschlag: setzt important/urgent
+  passend zum vorgeschlagenen Quadranten (`EISENHOWER_QUADRANTEN`), `lastModifiedBy=USER`,
+  löscht die ai*-Staging-Felder.
+- `POST /api/tasks/[id]/ai-suggestion/reject` — verwirft: ai*-Felder auf null.
+
+**Loop-Schutz (3 Schichten, PLAN §5) — Status**:
+1. Source-Flag `lastModifiedBy` — **schon scharf** (PATCH setzt USER, Callback setzt AI_OLLAMA).
+   classify NUR anbieten/auslösen, wenn `lastModifiedBy=USER` → KI-Write re-triggert nicht.
+2. Idempotenz `WebhookIdempotency` (jobKey) — im Callback bauen.
+3. Respond-immediately — im classify-Endpoint (202).
+
+**UI** (`aufgaben-client.tsx` erweitern, `TaskDTO.kiVorschlagOffen` existiert schon):
+- Pro Task „KI fragen"-Button → `POST …/classify`, zeigt „läuft…"; Liste per Polling/Reload
+  aktualisieren, bis `aiQuadrantSuggestion` gesetzt ist.
+- Wenn `kiVorschlagOffen`: dezentes Badge „KI schlägt **Q2 Planen** vor (78 %)" +
+  Buttons **Übernehmen** / **Verwerfen** (`accept`/`reject`). Reasoning als Tooltip/Zeile.
+  KI überschreibt nie automatisch — nur auf Klick.
+
+**Tests**: `parseKiAntwort` (gültig/ungültig), `jobKey` deterministisch, Callback-Idempotenz
+(Prisma-Mock: zweiter Call mit gleichem jobKey = no-op), accept setzt korrekt important/urgent,
+Callback verändert important/urgent NICHT.
+
+**Manueller n8n-Smoke** (nach Klärung): `curl` auf `/api/ai/callback` mit Fake-Payload +
+Secret → Vorschlag erscheint in `/aufgaben`; classify → n8n → Ollama → Callback-Kette end-to-end.
+
+**Wiedereinstieg-Befehle**: siehe Abschnitt 13 „Wiedereinstieg (hochfahren)".
+Achtung Umgebung: Maschine war zuletzt sehr langsam (Dev-Start ~9 Min, ~100 s/Route-Compile) —
+Verifikation primär über `npm run typecheck` + `npm test` + `npm run build`, Klick-Smoke wenn Zeit.

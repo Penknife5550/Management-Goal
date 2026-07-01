@@ -54,6 +54,7 @@ model User {
   email     String   @unique
   name      String
   goals     Goal[]   @relation("Owner")
+  tasks     Task[]   @relation("TaskOwner")
   createdAt DateTime @default(now())
 
   // Consent fuer Reminder-Mails (Phase 2: nutzergesteuert, kein Spam).
@@ -135,11 +136,13 @@ model LearningLog {
   @@map("learning_log")
 }
 
-// Schema-only in diesem Slice: haelt die Goal<->Task-Relation gueltig,
-// damit Phase 1 (Kanban/Eisenhower) ohne Migrations-Bruch andocken kann.
-// KEINE API / KEINE UI in diesem Slice.
+// Aufgaben-Ebene (Eisenhower). Owner-Scope ab Tag 1 wie bei Goal.
+// Die ai*-Felder werden vom KI-Eisenhower (Phase 2, Schritt 5) gestaged,
+// ueberschreiben aber nie die manuellen important/urgent des Nutzers.
 model Task {
   id                   String           @id @default(cuid())
+  ownerId              String
+  owner                User             @relation("TaskOwner", fields: [ownerId], references: [id])
   goalId               String?
   goal                 Goal?            @relation(fields: [goalId], references: [id], onDelete: SetNull)
   titel                String
@@ -157,6 +160,7 @@ model Task {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
+  @@index([ownerId, status])
   @@index([goalId, status])
   @@map("task")
 }

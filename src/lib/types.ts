@@ -3,6 +3,7 @@
 // Client-seitige DTOs (JSON-serialisiert: Datumsfelder als ISO-String).
 // Entkoppelt die UI vom Prisma-Modell.
 // ============================================================
+import type { TaskStatus } from "./eisenhower";
 import type { Ampel, GoalStatus } from "./goals";
 
 export interface LeadMeasureDTO {
@@ -23,6 +24,25 @@ export interface ZielDTO {
   abhaengig: boolean;
   lastCheckinAt: string | null;
   leadMeasures: LeadMeasureDTO[];
+  createdAt: string;
+}
+
+export interface TaskDTO {
+  id: string;
+  titel: string;
+  status: TaskStatus;
+  position: number;
+  important: boolean;
+  urgent: boolean;
+  quadrant: number; // 1..4, abgeleitet aus important/urgent
+  dueDate: string | null;
+  goalId: string | null;
+  goalTitel: string | null;
+  // KI-Eisenhower (Phase 2, Schritt 5): gestageter Vorschlag, Accept/Reject.
+  aiQuadrantSuggestion: number | null;
+  aiConfidence: number | null;
+  aiReasoning: string | null;
+  kiVorschlagOffen: boolean;
   createdAt: string;
 }
 
