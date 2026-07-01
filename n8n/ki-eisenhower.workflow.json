@@ -1,0 +1,110 @@
+{
+  "name": "KI-Eisenhower (Cockpit)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## KI-Eisenhower — Cockpit-Klassifizierung\n\n**Vertrag (Cockpit → dieser Workflow):**\nWebhook empfaengt `{ taskId, titel, model, prompt, callbackUrl, callbackSecret, jobKey }`.\n\n**Ablauf:**\n1. Webhook antwortet SOFORT 200 (respond-immediately).\n2. PII-Guard: bricht ab, wenn ein `:cloud`-Modell verlangt wird (Aufgaben-Inhalte NIE in die Cloud).\n3. Ollama `/api/generate` mit LOKALEM Modell, `format:\"json\"`, `stream:false`.\n4. Antwort (`response` = JSON-String) parsen, Callback-Body bauen.\n5. POST an `callbackUrl` mit Header `x-ai-callback-secret`.\n\n**Fehler:** Bricht ein Schritt ab, wird KEIN Callback gesendet — der Cockpit-Spinner\nlaeuft nach 90 s aus. Kein Halb-Zustand.",
+        "height": 320,
+        "width": 420
+      },
+      "id": "sticky-doc",
+      "name": "Doku",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-120, -60]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ki-eisenhower",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [360, 100],
+      "webhookId": "ki-eisenhower"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PII-Schutz: Aufgaben-Inhalte duerfen NIE an ein :cloud-Modell (routet auf ollama.com).\nconst body = $input.first().json.body || {};\nconst model = String(body.model || '');\nif (!model) {\n  throw new Error('Kein Modell angegeben.');\n}\nif (model.includes(':cloud')) {\n  throw new Error('PII-Schutz: Cloud-Modell \"' + model + '\" ist fuer Aufgaben-Inhalte verboten.');\n}\nif (!body.prompt || !body.callbackUrl || !body.jobKey || !body.taskId) {\n  throw new Error('Unvollstaendige Nutzlast (prompt/callbackUrl/jobKey/taskId).');\n}\nreturn $input.all();"
+      },
+      "id": "node-guard",
+      "name": "PII-Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [580, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ki.fes-credo.de:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $json.body.model, prompt: $json.body.prompt, format: 'json', stream: false }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "node-ollama",
+      "name": "Ollama (lokal)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ollama /api/generate liefert { response: \"<json-string>\", ... }.\n// Den JSON-String parsen und den Callback-Body bauen. Bei Unsinn: abbrechen (kein Callback).\nconst webhook = $('Webhook').first().json.body;\nconst roh = $input.first().json.response;\nlet parsed;\ntry {\n  parsed = JSON.parse(roh);\n} catch (e) {\n  throw new Error('Ollama-Antwort ist kein JSON: ' + String(roh).slice(0, 200));\n}\nreturn [{\n  json: {\n    callbackUrl: webhook.callbackUrl,\n    callbackSecret: webhook.callbackSecret,\n    payload: {\n      jobKey: webhook.jobKey,\n      taskId: webhook.taskId,\n      important: parsed.important,\n      urgent: parsed.urgent,\n      confidence: parsed.confidence,\n      reasoning: parsed.reasoning,\n    },\n  },\n}];"
+      },
+      "id": "node-aufbereiten",
+      "name": "Ergebnis aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callbackUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-ai-callback-secret",
+              "value": "={{ $json.callbackSecret }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {}
+      },
+      "id": "node-callback",
+      "name": "Callback ans Cockpit",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 100]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "PII-Guard", "type": "main", "index": 0 }]]
+    },
+    "PII-Guard": {
+      "main": [[{ "node": "Ollama (lokal)", "type": "main", "index": 0 }]]
+    },
+    "Ollama (lokal)": {
+      "main": [[{ "node": "Ergebnis aufbereiten", "type": "main", "index": 0 }]]
+    },
+    "Ergebnis aufbereiten": {
+      "main": [[{ "node": "Callback ans Cockpit", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

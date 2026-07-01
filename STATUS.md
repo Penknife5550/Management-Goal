@@ -14,8 +14,24 @@
 >
 > **NEU (2026-06-30): Aufgaben-Modul + Eisenhower-Matrix (manuell) gebaut** — Schritte 1–4
 > des KI-Eisenhower-Plans. Siehe **Abschnitt 14**.
-> **NÄCHSTER SCHRITT: KI-Anbindung (Schritt 5) — async via n8n + Ollama.** Offene
-> Infra-Punkte (n8n-Webhook-URL, Callback-Erreichbarkeit, Modellwahl) in Abschnitt 14.
+> **NEU (2026-07-01): Schritt 5 — KI-Eisenhower, Cockpit-Seite komplett gebaut** (Lib,
+> API classify/callback/accept/reject, UI-Badge, Idempotenz-Modell, Tests). `tsc` sauber,
+> KI-Tests 16 + Gesamt-Unit grün. Der **n8n-Workflow** liegt importierbar unter `n8n/`
+> (`ki-eisenhower.workflow.json` + README). Siehe **Abschnitt 14 → „Schritt 5 (gebaut)"**.
+> **NÄCHSTER SCHRITT:** n8n-Workflow importieren + 2 Infra-Punkte klären (Modellwahl,
+> Callback-Erreichbarkeit), dann End-to-End-Smoke.
+>
+> **▶ WIEDEREINSTIEG MORGEN (2026-07-02):**
+> - n8n-Workflow ist **live**: `https://n8n.fes-minden.de/webhook/ki-eisenhower` antwortet
+>   HTTP 200 (POST leerer Body → PII-Guard stoppt, kein Ollama-Call). Aktiv + erreichbar.
+> - Lokale **`.env`** (git-ignored, NICHT im Repo) ist gesetzt: `N8N_EISENHOWER_WEBHOOK_URL`,
+>   `AI_CALLBACK_SECRET` (per `openssl rand -hex 24`), `AI_MODEL=qwen2.5:7b`, `APP_URL`.
+> - **EINZIGER offener Punkt:** `APP_URL` in der `.env` auf die **öffentliche Cockpit-URL**
+>   setzen, die `n8n.fes-minden.de` erreicht (User will Cockpit auf einem Server betreiben —
+>   URL steht noch aus). Steht sie, geht der Callback an `<APP_URL>/api/ai/callback`.
+> - Dann **E2E-Smoke**: in `/aufgaben` „KI fragen" klicken → n8n → Ollama → Callback →
+>   Badge erscheint. Alternativ nur Callback per `curl` testen (Beispiel in `n8n/README.md`).
+> - DB starten → `npx prisma migrate dev` wendet `20260701120000_webhook_idempotenz` an.
 >
 > ---
 > _Historie unten: Abschnitte 1–7 beschreiben den Phase-1-Stand (2026-06-21)._
@@ -364,7 +380,32 @@ in zwei Schichten (A manuell jetzt, B KI als Nächstes).
 pro Route-Compile — Umgebungs-Langsamkeit, kein Code-Problem. API-Logik ist über die
 bestehenden Patterns + Unit-Tests abgedeckt; voller Klick-Test bei nächster Gelegenheit.)
 
-### Schritt 5 — KI-Eisenhower (offen, als Nächstes)
+### Schritt 5 — KI-Eisenhower (Cockpit-Seite GEBAUT 2026-07-01)
+**Status:** Die komplette Cockpit-Seite steht und ist verifiziert (`tsc` sauber, Unit-Tests
+grün, ohne laufende DB). Rein additiv — nichts Bestehendes umgebaut. Was gebaut wurde:
+- **Schema:** `WebhookIdempotency`-Modell (existierte entgegen der früheren Notiz **noch
+  nicht**) + Migration `20260701120000_webhook_idempotenz`. Retention-Cleanup verdrahtet
+  (`RETENTION_IDEMPOTENCY_TAGE=30`), Prisma-Client regeneriert.
+- **Lib** `src/lib/ai-eisenhower.ts`: `baueKlassifizierungsPrompt` (deutsch, JSON),
+  `jobKey` (Content-Hash taskId+Titel), `parseKiAntwort` (validiert, leitet Quadrant aus
+  important/urgent ab). Reine Funktionen, unit-getestet.
+- **API:** `POST /api/tasks/[id]/classify` (202, feuert n8n mit fertigem Prompt) ·
+  `POST /api/ai/callback` (Secret `x-ai-callback-secret`, idempotent via jobKey, schreibt
+  NUR ai*-Felder + `lastModifiedBy=AI_OLLAMA`, nie important/urgent) ·
+  `…/ai-suggestion/accept` (setzt important/urgent gemäß Quadrant, räumt ai* ab, USER) ·
+  `…/ai-suggestion/reject` (räumt ai* ab, USER).
+- **UI** `aufgaben-client.tsx`: „KI fragen"-Button, „denkt…"-Polling (90-s-Timeout),
+  Vorschlags-Badge mit Übernehmen/Verwerfen + Reasoning, „KI stimmt zu"-Fall.
+- **Prompt-Single-Source:** classify sendet den fertigen Prompt mit; n8n baut ihn NICHT.
+- **n8n-Workflow:** `n8n/ki-eisenhower.workflow.json` (Webhook onReceived → PII-Guard →
+  Ollama lokal → Parse → Callback) + `n8n/README.md`.
+
+**Noch offen für scharf:** Workflow in n8n importieren + aktivieren, `N8N_EISENHOWER_WEBHOOK_URL`
+/`AI_CALLBACK_SECRET`/`APP_URL` setzen, die 2 Infra-Punkte klären, End-to-End-Smoke.
+
+---
+
+#### Ursprüngliche Befunde (Kontext, weiterhin gültig)
 KI ist verfügbar: Ollama **über n8n** unter `http://ki.fes-credo.de:11434/api/generate`.
 Wichtige Befunde aus dieser Session:
 - **PII-Regel**: Am Endpoint liegen lokale Modelle (`qwen2.5:7b`, `qwen3.5:9b`,

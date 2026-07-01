@@ -21,7 +21,7 @@ function vergleicheSecret(got: string, expected: string): boolean {
 
 // Prueft ein Secret aus dem Request gegen eine ENV-Variable. Liefert null wenn
 // berechtigt, sonst eine fertige Fehlerantwort (500 = ENV fehlt, 403 = falsch).
-function pruefeSecret(envName: string, got: string): ReturnType<typeof jsonError> | null {
+export function pruefeSecret(envName: string, got: string): ReturnType<typeof jsonError> | null {
   const expected = process.env[envName] ?? "";
   if (!expected) return jsonError(`${envName} ist nicht konfiguriert — Endpunkt gesperrt.`, 500);
   return vergleicheSecret(got, expected) ? null : jsonError("Keine Berechtigung.", 403);

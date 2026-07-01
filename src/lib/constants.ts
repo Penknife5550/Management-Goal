@@ -24,3 +24,7 @@ export const CHECKIN_FAELLIG_TAGE = 7;
 // CheckIn-Historie wird bewusst NICHT bereinigt (Adoptions-Trends, Phase 3).
 export const RETENTION_EMAILLOG_TAGE = 180;
 export const RETENTION_DISPATCH_TAGE = 90;
+
+// Idempotenz-Keys der KI-Callbacks muessen nur so lange leben, dass sie
+// verspaetete n8n-Retries abfangen. 30 Tage sind grosszuegig.
+export const RETENTION_IDEMPOTENCY_TAGE = 30;

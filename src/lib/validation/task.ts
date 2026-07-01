@@ -35,3 +35,11 @@ export const taskUpdateSchema = z
 
 export type TaskCreateInput = z.infer<typeof taskCreateSchema>;
 export type TaskUpdateInput = z.infer<typeof taskUpdateSchema>;
+
+// Envelope des KI-Callbacks (KI-Eisenhower, Schritt 5). Nur die Zuordnungs-Felder
+// werden hier geprueft; der KI-Inhalt (important/urgent/confidence/reasoning) wird
+// separat von parseKiAntwort() validiert (isoliert unit-testbar).
+export const aiCallbackSchema = z.object({
+  jobKey: z.string().min(1, "jobKey fehlt"),
+  taskId: z.string().min(1, "taskId fehlt"),
+});

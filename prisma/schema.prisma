@@ -294,3 +294,16 @@ model ReminderDispatch {
   @@index([createdAt]) // fuer Retention-Cleanup (where createdAt < cutoff)
   @@map("reminder_dispatch")
 }
+
+// Idempotenz-Sperre fuer eingehende Webhook-Callbacks (KI-Eisenhower, Schritt 5).
+// jobKey = deterministischer Content-Hash (taskId + Titel). Der Unique-Constraint
+// laesst einen zweiten Callback mit gleichem jobKey nicht durch (n8n-Retries,
+// Doppel-Zustellung). Schicht 2 des KI-Loop-Schutzes (PLAN §5).
+model WebhookIdempotency {
+  id        String   @id @default(cuid())
+  jobKey    String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([createdAt]) // fuer Retention-Cleanup (where createdAt < cutoff)
+  @@map("webhook_idempotency")
+}
