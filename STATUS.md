@@ -1,7 +1,7 @@
 # STATUS & Übergabe — Führungs-Cockpit
 
 > **AKTUELLER STAND: 2026-07-01 — Phase 2 komplett + Aufgaben-/Eisenhower-Modul (Schritte 1–4).**
-> Letzter Commit: `2e97963`. Branch `main`. Working Tree sauber. (Noch nicht gepusht.)
+> Letzter Commit: `b6ae939`. Branch `main`. Working Tree sauber. (Noch nicht gepusht.)
 > GoLive-Status: 🟢 (kein Critical, keine blockierenden Majors).
 >
 > **Was steht:** Phase 1 (Goal/WIG-Modul) + Phase 2 vollständig — Wochen-Check-in,
