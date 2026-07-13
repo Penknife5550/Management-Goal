@@ -481,3 +481,82 @@ Secret → Vorschlag erscheint in `/aufgaben`; classify → n8n → Ollama → C
 **Wiedereinstieg-Befehle**: siehe Abschnitt 13 „Wiedereinstieg (hochfahren)".
 Achtung Umgebung: Maschine war zuletzt sehr langsam (Dev-Start ~9 Min, ~100 s/Route-Compile) —
 Verifikation primär über `npm run typecheck` + `npm test` + `npm run build`, Klick-Smoke wenn Zeit.
+
+## 15. Session 2026-07-13 (Teil 2): Strategie „Insights + Kracher" + zwei Features
+
+> Stand am Feierabend. Zwei Feature-Commits liegen auf `main` (lokal, **nicht gepusht**):
+> `5e826ab` (AP1 Insight-Motor) · `37f333f` (Aufgaben-Erweiterung). Davor `ce035c3`
+> (KI-Eisenhower) ist bereits **gepusht**. `tsc` sauber · **134/134 Unit-Tests** ·
+> API-Smoke 16/16 · Browser-UI verifiziert.
+
+### 15.1 Kritischer Strategie-Review (Kurzfassung)
+Heute ist das Produkt ein **exzellentes Einzelnutzer-Tool** (Eisenhower + Ziele +
+Wochen-Check-in). Der namensgebende **„Cockpit"-Teil (Führungs-Überblick / GF-Roll-up)
+existiert noch nicht** — er ist im Plan Phase 5, also fast zuletzt. Dokumentierte blinde Flecken:
+1. **Namensgeber fehlt** — GF-Aggregat vorziehen (billige read-only Sicht, Plan Phase 3).
+2. **Commodity-KI statt Burggraben** — gebaut wurde der Eisenhower-Vorschlag (kann jedes Tool,
+   höchstes Halluzinationsrisiko); die Drucker-Differenzierer (Zombie-Killer, Feedback-Analyse
+   — `LearningLog`-Modell existiert schon!) sind ungebaut.
+3. **Keine Adoptions-Telemetrie** — Risiko #1 des Plans, aber nicht messbar (kein Event-Log).
+4. **Auth = Stub** (`auth.ts` hartcodiert) → blockiert jedes strategische Feature; zugleich
+   offene Flanke, weil die öffentliche Exposition (n8n/`APP_URL`) vorher passiert.
+5. **Audit-Log fehlt** trotz Personalrat/DSB-Zusage; Backup/DSGVO-Löschkonzept offen.
+6. **Insight-Schicht fehlt** — heute wird getrackt, nicht verdichtet.
+
+### 15.2 Beschlossene Agenda „Insights + echter Kracher für die Führungskräfte"
+**Der Kracher = „Das Montags-Briefing"** (KI-veredelt) + **„Gewinne ich?"-Startseite** +
+**GF-Aggregat**. 6 Arbeitspakete:
+- **AP 1 Insight-Motor** — deterministische Regeln (**GEBAUT**, s. 15.3).
+- **AP 2 „Gewinne ich?"-Startseite** `/heute` — WIG-Ampeln + heutige Q1/Q2 + Top-Insights.
+- **AP 3 KI-Briefing** — AP-1-Findings via n8n/Ollama in Klartext gießen (nutzt bestehende
+  Pipeline + `mailer.ts`); Entscheidung: **Regeln zuerst, KI formuliert nur** (kein Halluz.-Risiko).
+- **AP 4 Drucker-Tiefe** — `LearningLog`-Flow verdrahten + Zombie-Review-Cron.
+- **AP 5 GF-Aggregat** (read-only) — braucht Auth (AP 6).
+- **AP 6 Auth + Audit-Log** — kritischer Pfad, öffentliche Exposition absichern.
+- Reihenfolge: AP1→2→3→4 (kein Auth nötig, sofort Wow); AP6→5 parallel früh anstoßen.
+
+### 15.3 AP 1 — Insight-Motor (GEBAUT, Commit `5e826ab`)
+- `src/lib/insights.ts` — 5 **reine, Prisma-freie** Regeln (isoliert testbar):
+  `erkenneWatermelon` (grün außen, Lead Measures hinten), `berechneFokusLeck` (Q3-Anteil,
+  Zeit oder Anzahl), `findeZombies` (Backlog > `ZOMBIE_TAGE`=90 unverändert), `ampelTrend`
+  (Verschlechterung über die letzten 2 Check-ins), `pruefeBeitrag` (Outcome fehlt/Aktivitäts-
+  Verb). `berechneInsights` bündelt + sortiert nach Schwere. Schwellen in `constants.ts`.
+- `GET /api/insights` — owner-scoped, liest Goals (+leadMeasures/checkIns) + Tasks, gibt
+  `Insight[]` zurück. **Rein lesend, keine KI** (die kommt AP 3).
+- **24 Unit-Tests** (`tests/unit/insights.test.ts`).
+- **Noch nicht verdrahtet**: keine UI zeigt die Insights bisher (kommt mit AP 2).
+
+### 15.4 Aufgaben-Erweiterung — Unteraufgaben + Beschreibung (GEBAUT, Commit `37f333f`)
+User-Wunsch: „Aufgabe = Titel, beim Öffnen mehr". Entscheidungen: **Checklisten-Unteraufgaben**
+(kein eigener Quadrant) + **„alles im Detail-Modal"**.
+- **Schema**: `Task.beschreibung String?` + neues `Subtask`-Modell (titel/erledigt/position,
+  Cascade). Migration `20260713202133_aufgaben_beschreibung_subtasks`. Neu genutzte, vorher
+  brachliegende Felder im Modal sichtbar gemacht: `zeitGeplantMin`, `zeitIstMin`, `dueDate`.
+- **API**: `POST /api/tasks/[id]/subtasks`, `PATCH/DELETE /api/subtasks/[id]` (owner-scoped
+  über die Eltern-Aufgabe, geben die **aktualisierte Eltern-Aufgabe** als DTO zurück).
+  `TASK_INCLUDE` in `task-service.ts` als Single-Source aller Task-Includes → accept/reject/
+  tasks/[id]-Routen darauf umgestellt. `taskUpdateSchema` um beschreibung/zeit erweitert.
+- **UI**: `src/components/aufgaben/aufgaben-detail-modal.tsx` (Radix Dialog, Muster aus
+  `ziel-auf-fokus-modal`): Titel/Beschreibung/Unteraufgaben-Checkliste/Wichtig-Dringend/WIG/
+  Frist/Zeit/KI, Textfelder committen onBlur. `aufgaben-client.tsx`: Karte = Übersicht
+  (Titel klickbar → Modal, `2/5`-Zähler + Beschreibungs-/KI-Indikator).
+- **Kleiner offener Punkt**: Enter im Unteraufgaben-Feld hat im Automations-Klick nicht
+  ausgelöst (der +-Button schon); identisches `onKeyDown`-Muster wie das funktionierende
+  Haupt-Quick-Add → wahrscheinlich Artefakt, im echten Gebrauch einmal prüfen (evtl. AP „Aufgaben verfeinern").
+
+### 15.5 Wiedereinstieg morgen
+```bash
+cd "/Users/dimitririesen/Desktop/claude_projekte/Managemt Software"
+docker start cockpit-db
+# Dev-Secrets exportieren (siehe Abschnitt 13) ODER Scratchpad-devenv nutzen; dann:
+npx prisma migrate deploy          # bringt neue Migrationen (falls DB frisch)
+npm run typecheck && npm test       # tsc + 134 Tests
+npx next dev -p 3000                # /aufgaben (Modal!), /ziele, /check-in, /fokuszeit
+```
+Umgebung weiterhin **sehr langsam** (Dev-Ready ~12 Min, Seiten-Compile >160 s) — Verifikation
+primär über tsc/Tests/API-Smoke, Klick-Test wenn Zeit. Smoke-Skripte liegen im Session-Scratchpad
+(`smoke-ki.mjs`, `smoke-subtasks.mjs`), sind aber session-lokal.
+
+**Nächster Zug (offen gelassen)**: entweder **AP 2** (`/heute`-Seite, macht AP-1-Insights sichtbar
+— empfohlen, kein Auth nötig) oder **AP 3** (KI-Briefing über n8n). Details 15.2.
+**Git**: `5e826ab` + `37f333f` lokal committet, **noch nicht gepusht** (auf Wunsch pushbar).
