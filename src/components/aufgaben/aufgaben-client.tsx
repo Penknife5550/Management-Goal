@@ -2,28 +2,19 @@
 
 // ============================================================
 // Aufgaben / Eisenhower-Matrix: Aufgaben nach wichtig x dringend einsortieren.
-// Anlegen, Quadrant wechseln (Wichtig/Dringend-Toggle), erledigen, loeschen.
-// Kein Drag-and-Drop (kein neuer Tech-Stack) – Toggles sind tastatur-zugaenglich.
-// KI-Quadranten-Vorschlag folgt in Schritt 5 (DTO-Felder sind bereits da).
+// Die Karte ist die Uebersicht (Titel klickbar) — Details, Unteraufgaben,
+// Beschreibung, Frist, Zeit und KI liegen im Detail-Modal.
+// Kein Drag-and-Drop; Quadrant wird im Modal ueber Toggles gewechselt.
 // ============================================================
-import { Check, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Check, FileText, ListChecks, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { senden } from "@/lib/client";
-import {
-  berechneQuadrant,
-  EISENHOWER_QUADRANTEN,
-  type Quadrant,
-  quadrantMeta,
-} from "@/lib/eisenhower";
+import { berechneQuadrant, EISENHOWER_QUADRANTEN } from "@/lib/eisenhower";
 import type { TaskDTO, ZielDTO } from "@/lib/types";
+import { AufgabenDetailModal, type WigOption } from "./aufgaben-detail-modal";
 
 const INPUT = "rounded-lg border border-input bg-background px-3 py-2 text-sm";
-
-interface WigOption {
-  id: string;
-  titel: string;
-}
 
 const LEER = { titel: "", important: false, urgent: false, goalId: "" };
 
@@ -33,6 +24,7 @@ export function AufgabenClient() {
   const [form, setForm] = useState({ ...LEER });
   const [fehler, setFehler] = useState<string | null>(null);
   const [speichert, setSpeichert] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
   // Aufgaben, deren KI-Klassifizierung gerade laeuft (Callback noch offen).
   const [kiLaeuft, setKiLaeuft] = useState<Set<string>>(new Set());
 
@@ -123,6 +115,32 @@ export function AufgabenClient() {
     }
   }
 
+  // Unteraufgaben: die Endpunkte liefern die aktualisierte Eltern-Aufgabe zurueck.
+  function ersetzeTask(aktualisiert: TaskDTO) {
+    setTasks((ts) => ts?.map((t) => (t.id === aktualisiert.id ? aktualisiert : t)) ?? ts);
+  }
+  async function subtaskAnlegen(taskId: string, titel: string) {
+    try {
+      ersetzeTask(await senden<TaskDTO>(`/api/tasks/${taskId}/subtasks`, "POST", { titel }));
+    } catch (e) {
+      setFehler((e as Error).message);
+    }
+  }
+  async function subtaskPatch(subId: string, aenderung: { titel?: string; erledigt?: boolean }) {
+    try {
+      ersetzeTask(await senden<TaskDTO>(`/api/subtasks/${subId}`, "PATCH", aenderung));
+    } catch (e) {
+      setFehler((e as Error).message);
+    }
+  }
+  async function subtaskLoeschen(subId: string) {
+    try {
+      ersetzeTask(await senden<TaskDTO>(`/api/subtasks/${subId}`, "DELETE"));
+    } catch (e) {
+      setFehler((e as Error).message);
+    }
+  }
+
   // KI um eine Quadranten-Einschaetzung bitten (async ueber n8n/Ollama).
   async function klassifizieren(id: string) {
     setFehler(null);
@@ -156,6 +174,7 @@ export function AufgabenClient() {
 
   const offen = tasks.filter((t) => t.status !== "DONE");
   const erledigt = tasks.filter((t) => t.status === "DONE");
+  const detailTask = detailId ? (tasks.find((t) => t.id === detailId) ?? null) : null;
 
   return (
     <div className="space-y-6">
@@ -220,13 +239,8 @@ export function AufgabenClient() {
               meta={q}
               tasks={offen.filter((t) => berechneQuadrant(t.important, t.urgent) === q.wert)}
               kiLaeuft={kiLaeuft}
-              onToggleImportant={(t) => patchen(t.id, { important: !t.important })}
-              onToggleUrgent={(t) => patchen(t.id, { urgent: !t.urgent })}
+              onOeffnen={(t) => setDetailId(t.id)}
               onErledigt={(t) => patchen(t.id, { status: "DONE" })}
-              onLoeschen={(t) => loeschen(t.id)}
-              onKlassifizieren={(t) => klassifizieren(t.id)}
-              onUebernehmen={(t) => kiEntscheiden(t.id, "accept")}
-              onVerwerfen={(t) => kiEntscheiden(t.id, "reject")}
             />
           ))}
         </div>
@@ -243,7 +257,12 @@ export function AufgabenClient() {
                 className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm"
               >
                 <Check size={15} className="shrink-0 text-credo-gruen" aria-hidden="true" />
-                <span className="flex-1 text-muted-foreground line-through">{t.titel}</span>
+                <button
+                  onClick={() => setDetailId(t.id)}
+                  className="flex-1 truncate text-left text-muted-foreground line-through"
+                >
+                  {t.titel}
+                </button>
                 <button
                   onClick={() => patchen(t.id, { status: "TODO" })}
                   className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
@@ -262,6 +281,21 @@ export function AufgabenClient() {
           </ul>
         </div>
       )}
+
+      <AufgabenDetailModal
+        task={detailTask}
+        wigs={wigs}
+        kiLaeuft={detailId ? kiLaeuft.has(detailId) : false}
+        onClose={() => setDetailId(null)}
+        onPatch={patchen}
+        onLoeschen={loeschen}
+        onSubtaskAnlegen={subtaskAnlegen}
+        onSubtaskPatch={subtaskPatch}
+        onSubtaskLoeschen={subtaskLoeschen}
+        onKlassifizieren={klassifizieren}
+        onUebernehmen={(id) => kiEntscheiden(id, "accept")}
+        onVerwerfen={(id) => kiEntscheiden(id, "reject")}
+      />
     </div>
   );
 }
@@ -289,27 +323,11 @@ interface QuadrantBoxProps {
   meta: (typeof EISENHOWER_QUADRANTEN)[number];
   tasks: TaskDTO[];
   kiLaeuft: Set<string>;
-  onToggleImportant: (t: TaskDTO) => void;
-  onToggleUrgent: (t: TaskDTO) => void;
+  onOeffnen: (t: TaskDTO) => void;
   onErledigt: (t: TaskDTO) => void;
-  onLoeschen: (t: TaskDTO) => void;
-  onKlassifizieren: (t: TaskDTO) => void;
-  onUebernehmen: (t: TaskDTO) => void;
-  onVerwerfen: (t: TaskDTO) => void;
 }
 
-function QuadrantBox({
-  meta,
-  tasks,
-  kiLaeuft,
-  onToggleImportant,
-  onToggleUrgent,
-  onErledigt,
-  onLoeschen,
-  onKlassifizieren,
-  onUebernehmen,
-  onVerwerfen,
-}: QuadrantBoxProps) {
+function QuadrantBox({ meta, tasks, kiLaeuft, onOeffnen, onErledigt }: QuadrantBoxProps) {
   return (
     <section className="flex min-h-32 flex-col rounded-lg border bg-card p-3">
       <header className="mb-2 flex items-center gap-2">
@@ -322,40 +340,18 @@ function QuadrantBox({
       ) : (
         <ul className="flex flex-col gap-1.5">
           {tasks.map((t) => (
-            <li key={t.id} className="rounded-md border border-border bg-background px-2.5 py-2">
-              <div className="flex items-start gap-2">
-                <button
-                  onClick={() => onErledigt(t)}
-                  aria-label={`Erledigt: ${t.titel}`}
-                  className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-input hover:border-accent"
-                >
-                  <Check size={11} className="text-transparent" aria-hidden="true" />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm leading-snug">{t.titel}</p>
-                  {t.goalTitel && (
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">WIG: {t.goalTitel}</p>
-                  )}
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <MiniToggle aktiv={t.important} onClick={() => onToggleImportant(t)} label="Wichtig" />
-                    <MiniToggle aktiv={t.urgent} onClick={() => onToggleUrgent(t)} label="Dringend" />
-                    <button
-                      onClick={() => onLoeschen(t)}
-                      aria-label={`Loeschen: ${t.titel}`}
-                      className="ml-auto rounded p-1 text-muted-foreground hover:bg-muted"
-                    >
-                      <Trash2 size={13} aria-hidden="true" />
-                    </button>
-                  </div>
-                  <KiBereich
-                    task={t}
-                    laeuft={kiLaeuft.has(t.id)}
-                    onKlassifizieren={() => onKlassifizieren(t)}
-                    onUebernehmen={() => onUebernehmen(t)}
-                    onVerwerfen={() => onVerwerfen(t)}
-                  />
-                </div>
-              </div>
+            <li key={t.id} className="flex items-start gap-2 rounded-md border border-border bg-background px-2.5 py-2">
+              <button
+                onClick={() => onErledigt(t)}
+                aria-label={`Erledigt: ${t.titel}`}
+                className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border border-input hover:border-accent"
+              >
+                <Check size={11} className="text-transparent" aria-hidden="true" />
+              </button>
+              <button onClick={() => onOeffnen(t)} className="min-w-0 flex-1 text-left">
+                <p className="text-sm leading-snug">{t.titel}</p>
+                <TaskMeta task={t} laeuft={kiLaeuft.has(t.id)} />
+              </button>
             </li>
           ))}
         </ul>
@@ -364,108 +360,35 @@ function QuadrantBox({
   );
 }
 
-function MiniToggle({ aktiv, onClick, label }: { aktiv: boolean; onClick: () => void; label: string }) {
+// Kompakte Meta-Zeile der Karte: WIG, Unteraufgaben-Fortschritt, Beschreibung,
+// KI-Status. Nur Anzeige — bearbeitet wird im Detail-Modal.
+function TaskMeta({ task, laeuft }: { task: TaskDTO; laeuft: boolean }) {
+  const erledigt = task.subtasks.filter((s) => s.erledigt).length;
+  const hatMeta =
+    task.goalTitel || task.subtasks.length > 0 || task.beschreibung || laeuft || task.kiVorschlagOffen;
+  if (!hatMeta) return null;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={aktiv}
-      className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-        aktiv
-          ? "border-accent bg-accent text-accent-foreground"
-          : "border-input bg-background text-muted-foreground hover:bg-muted"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-// KI-Bereich je Aufgabe: "KI fragen"-Button, "denkt…"-Zustand oder der
-// eingetroffene Vorschlag mit Uebernehmen/Verwerfen. KI ueberschreibt nie
-// automatisch — nur auf Klick. Der Quadrant kommt aus quadrantMeta (Single-Source).
-function KiBereich({
-  task,
-  laeuft,
-  onKlassifizieren,
-  onUebernehmen,
-  onVerwerfen,
-}: {
-  task: TaskDTO;
-  laeuft: boolean;
-  onKlassifizieren: () => void;
-  onUebernehmen: () => void;
-  onVerwerfen: () => void;
-}) {
-  // Noch kein Vorschlag: fragen anbieten (oder laufenden Lauf anzeigen).
-  if (task.aiQuadrantSuggestion == null) {
-    if (laeuft) {
-      return (
-        <p className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-          <Sparkles size={12} className="animate-pulse" aria-hidden="true" />
-          KI denkt nach…
-        </p>
-      );
-    }
-    return (
-      <button
-        type="button"
-        onClick={onKlassifizieren}
-        className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-input px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted"
-      >
-        <Sparkles size={12} aria-hidden="true" />
-        KI fragen
-      </button>
-    );
-  }
-
-  const meta = quadrantMeta(task.aiQuadrantSuggestion as Quadrant);
-  const prozent = task.aiConfidence != null ? Math.round(task.aiConfidence * 100) : null;
-
-  // KI stimmt dem aktuellen Quadranten zu -> nichts zu entscheiden, nur bestaetigen.
-  if (!task.kiVorschlagOffen) {
-    return (
-      <div className="mt-1.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <Sparkles size={12} className="text-credo-gruen" aria-hidden="true" />
-          KI stimmt zu{prozent != null && ` (${prozent} %)`}
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+      {task.goalTitel && <span className="truncate">WIG: {task.goalTitel}</span>}
+      {task.subtasks.length > 0 && (
+        <span className="inline-flex items-center gap-0.5">
+          <ListChecks size={12} aria-hidden="true" />
+          {erledigt}/{task.subtasks.length}
         </span>
-        <button type="button" onClick={onVerwerfen} className="rounded px-1.5 py-0.5 hover:bg-muted">
-          OK
-        </button>
-      </div>
-    );
-  }
-
-  // Abweichender Vorschlag: zur Entscheidung anbieten.
-  return (
-    <div className="mt-1.5 rounded-md border border-border bg-muted/40 px-2 py-1.5">
-      <p className="flex items-center gap-1 text-[11px]" title={task.aiReasoning ?? undefined}>
-        <Sparkles size={12} className={meta.akzentText} aria-hidden="true" />
-        <span>
-          KI schlaegt vor: <span className={`font-semibold ${meta.akzentText}`}>{meta.titel}</span>
-          {prozent != null && <span className="text-muted-foreground"> ({prozent} %)</span>}
-        </span>
-      </p>
-      {task.aiReasoning && (
-        <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{task.aiReasoning}</p>
       )}
-      <div className="mt-1 flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onUebernehmen}
-          className="rounded-md bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-foreground"
-        >
-          Uebernehmen
-        </button>
-        <button
-          type="button"
-          onClick={onVerwerfen}
-          className="rounded-md border border-input px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted"
-        >
-          Verwerfen
-        </button>
-      </div>
+      {task.beschreibung && <FileText size={12} aria-hidden="true" />}
+      {laeuft && (
+        <span className="inline-flex items-center gap-0.5">
+          <Sparkles size={12} className="animate-pulse" aria-hidden="true" />
+          KI denkt…
+        </span>
+      )}
+      {!laeuft && task.kiVorschlagOffen && (
+        <span className="inline-flex items-center gap-0.5 text-accent">
+          <Sparkles size={12} aria-hidden="true" />
+          KI-Vorschlag
+        </span>
+      )}
     </div>
   );
 }

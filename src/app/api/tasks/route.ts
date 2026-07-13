@@ -9,7 +9,7 @@ import { jsonError, jsonOk, parseBody } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findeZielFuerNutzer } from "@/lib/goal-service";
-import { toTaskDTO } from "@/lib/task-service";
+import { TASK_INCLUDE, toTaskDTO } from "@/lib/task-service";
 import { taskCreateSchema } from "@/lib/validation/task";
 
 export async function GET() {
@@ -17,7 +17,7 @@ export async function GET() {
     const nutzer = getAktuellerNutzer();
     const tasks = await prisma.task.findMany({
       where: { ownerId: nutzer.id },
-      include: { goal: { select: { titel: true } } },
+      include: TASK_INCLUDE,
       orderBy: [{ position: "asc" }, { createdAt: "asc" }],
     });
     return jsonOk(tasks.map(toTaskDTO));
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         goalId: d.goalId ?? null,
         dueDate: d.dueDate ?? null,
       },
-      include: { goal: { select: { titel: true } } },
+      include: TASK_INCLUDE,
     });
     return jsonOk(toTaskDTO(task), 201);
   } catch (fehler) {

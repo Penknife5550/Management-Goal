@@ -35,11 +35,14 @@ const task = (over: Record<string, unknown> = {}) => ({
   ownerId: "u1",
   goalId: null,
   titel: "Aufgabe",
+  beschreibung: null,
   status: "TODO",
   position: 0,
   important: false,
   urgent: false,
   dueDate: null,
+  zeitGeplantMin: null,
+  zeitIstMin: null,
   aiQuadrantSuggestion: null,
   aiConfidence: null,
   aiReasoning: null,
@@ -47,6 +50,7 @@ const task = (over: Record<string, unknown> = {}) => ({
   createdAt: new Date("2026-07-01T00:00:00Z"),
   updatedAt: new Date("2026-07-01T00:00:00Z"),
   goal: null,
+  subtasks: [],
   ...over,
 });
 

@@ -27,17 +27,28 @@ export interface ZielDTO {
   createdAt: string;
 }
 
+export interface SubtaskDTO {
+  id: string;
+  titel: string;
+  erledigt: boolean;
+  position: number;
+}
+
 export interface TaskDTO {
   id: string;
   titel: string;
+  beschreibung: string | null;
   status: TaskStatus;
   position: number;
   important: boolean;
   urgent: boolean;
   quadrant: number; // 1..4, abgeleitet aus important/urgent
   dueDate: string | null;
+  zeitGeplantMin: number | null;
+  zeitIstMin: number | null;
   goalId: string | null;
   goalTitel: string | null;
+  subtasks: SubtaskDTO[];
   // KI-Eisenhower (Phase 2, Schritt 5): gestageter Vorschlag, Accept/Reject.
   aiQuadrantSuggestion: number | null;
   aiConfidence: number | null;

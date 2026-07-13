@@ -9,7 +9,7 @@ import { jsonError, jsonOk } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { type Quadrant, quadrantMeta } from "@/lib/eisenhower";
-import { findeTaskFuerNutzer, toTaskDTO } from "@/lib/task-service";
+import { findeTaskFuerNutzer, TASK_INCLUDE, toTaskDTO } from "@/lib/task-service";
 
 type Kontext = { params: Promise<{ id: string }> };
 
@@ -37,7 +37,7 @@ export async function POST(_request: NextRequest, { params }: Kontext) {
         aiConfidence: null,
         aiReasoning: null,
       },
-      include: { goal: { select: { titel: true } } },
+      include: TASK_INCLUDE,
     });
     return jsonOk(toTaskDTO(aktualisiert));
   } catch (fehler) {

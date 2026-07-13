@@ -24,17 +24,44 @@ export const taskCreateSchema = z.object({
 export const taskUpdateSchema = z
   .object({
     titel: z.string().trim().min(1, "Titel darf nicht leer sein").max(200).optional(),
+    beschreibung: z
+      .string()
+      .trim()
+      .max(5000, "Beschreibung ist zu lang (max. 5000 Zeichen)")
+      .nullable()
+      .optional(),
     status: z.enum(STATUS).optional(),
     important: z.boolean().optional(),
     urgent: z.boolean().optional(),
     position: z.number().optional(),
     goalId: z.string().min(1).nullable().optional(),
     dueDate: z.coerce.date().nullable().optional(),
+    zeitGeplantMin: z.number().int().min(0).max(100000).nullable().optional(),
+    zeitIstMin: z.number().int().min(0).max(100000).nullable().optional(),
+  })
+  .strict();
+
+// Unteraufgaben (Checkliste). Anlegen bewusst minimal (nur Titel).
+export const subtaskCreateSchema = z.object({
+  titel: z
+    .string({ required_error: "Titel ist erforderlich" })
+    .trim()
+    .min(1, "Titel ist erforderlich")
+    .max(200, "Titel ist zu lang (max. 200 Zeichen)"),
+});
+
+export const subtaskUpdateSchema = z
+  .object({
+    titel: z.string().trim().min(1, "Titel darf nicht leer sein").max(200).optional(),
+    erledigt: z.boolean().optional(),
+    position: z.number().optional(),
   })
   .strict();
 
 export type TaskCreateInput = z.infer<typeof taskCreateSchema>;
 export type TaskUpdateInput = z.infer<typeof taskUpdateSchema>;
+export type SubtaskCreateInput = z.infer<typeof subtaskCreateSchema>;
+export type SubtaskUpdateInput = z.infer<typeof subtaskUpdateSchema>;
 
 // Envelope des KI-Callbacks (KI-Eisenhower, Schritt 5). Nur die Zuordnungs-Felder
 // werden hier geprueft; der KI-Inhalt (important/urgent/confidence/reasoning) wird

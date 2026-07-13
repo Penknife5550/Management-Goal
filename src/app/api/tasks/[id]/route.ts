@@ -11,7 +11,7 @@ import { jsonError, jsonOk, parseBody } from "@/lib/api";
 import { getAktuellerNutzer } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findeZielFuerNutzer } from "@/lib/goal-service";
-import { findeTaskFuerNutzer, toTaskDTO } from "@/lib/task-service";
+import { findeTaskFuerNutzer, TASK_INCLUDE, toTaskDTO } from "@/lib/task-service";
 import { taskUpdateSchema } from "@/lib/validation/task";
 
 type Kontext = { params: Promise<{ id: string }> };
@@ -34,11 +34,14 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
 
     const data: Prisma.TaskUpdateInput = {};
     if (d.titel !== undefined) data.titel = d.titel;
+    if (d.beschreibung !== undefined) data.beschreibung = d.beschreibung;
     if (d.status !== undefined) data.status = d.status;
     if (d.important !== undefined) data.important = d.important;
     if (d.urgent !== undefined) data.urgent = d.urgent;
     if (d.position !== undefined) data.position = d.position;
     if (d.dueDate !== undefined) data.dueDate = d.dueDate;
+    if (d.zeitGeplantMin !== undefined) data.zeitGeplantMin = d.zeitGeplantMin;
+    if (d.zeitIstMin !== undefined) data.zeitIstMin = d.zeitIstMin;
     if (d.goalId !== undefined) {
       data.goal = d.goalId ? { connect: { id: d.goalId } } : { disconnect: true };
     }
@@ -50,7 +53,7 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
     const task = await prisma.task.update({
       where: { id },
       data,
-      include: { goal: { select: { titel: true } } },
+      include: TASK_INCLUDE,
     });
     return jsonOk(toTaskDTO(task));
   } catch (fehler) {

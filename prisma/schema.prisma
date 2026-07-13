@@ -146,6 +146,7 @@ model Task {
   goalId               String?
   goal                 Goal?            @relation(fields: [goalId], references: [id], onDelete: SetNull)
   titel                String
+  beschreibung         String? // Freitext-Details, im Detail-Modal editierbar
   status               TaskStatus       @default(TODO)
   position             Float            @default(0)
   important            Boolean          @default(false)
@@ -157,12 +158,28 @@ model Task {
   aiConfidence         Float?
   aiReasoning          String?
   lastModifiedBy       EnrichmentSource @default(USER)
+  subtasks             Subtask[]
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
   @@index([ownerId, status])
   @@index([goalId, status])
   @@map("task")
+}
+
+// Unteraufgaben als schlanke Checkliste (Titel + erledigt), an eine Aufgabe
+// gehaengt. Bewusst kein eigener Eisenhower-/Kanban-Status (Simplicity First).
+model Subtask {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  titel     String
+  erledigt  Boolean  @default(false)
+  position  Float    @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@map("subtask")
 }
 
 // ============================================================
