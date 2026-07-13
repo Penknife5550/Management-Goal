@@ -28,3 +28,13 @@ export const RETENTION_DISPATCH_TAGE = 90;
 // Idempotenz-Keys der KI-Callbacks muessen nur so lange leben, dass sie
 // verspaetete n8n-Retries abfangen. 30 Tage sind grosszuegig.
 export const RETENTION_IDEMPOTENCY_TAGE = 30;
+
+// ---- Insight-Motor (AP 1): Schwellenwerte der deterministischen Regeln ----
+// Watermelon: ein FOKUS-Ziel wirkt aussen gut (Fortschritt >= MIN oder Ampel
+// gruen), aber die steuerbaren Lead Measures sind unter MAX erfuellt.
+export const WATERMELON_FORTSCHRITT_MIN = 70;
+export const WATERMELON_LEAD_MAX = 0.4;
+// Fokus-Leck: Anteil in Q3 (dringend, nicht wichtig), ab dem gewarnt wird.
+export const FOKUSLECK_Q3_WARN = 0.3;
+// Zombie: Backlog-Ziel so viele Tage unveraendert -> Streich-Kandidat (Drucker).
+export const ZOMBIE_TAGE = 90;
