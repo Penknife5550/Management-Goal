@@ -617,3 +617,58 @@ primär über tsc/Tests/API-Smoke, Klick-Test wenn Zeit. Smoke-Skripte liegen im
 2. Audit-Log fehlt (Personalrat/DSB-Zusage), Backup-/DSGVO-Löschkonzept offen (§15.1).
 3. Adoptions-Telemetrie fehlt (Plan-Risiko #1).
 - Danach: AP 3 (KI-Briefing), AP 4 (Drucker-Tiefe), AP 5 (GF-Aggregat, braucht AP 6).
+
+## 17. Session 2026-07-15/16: AP6 — Echte Auth + Audit-Log (GEBAUT)
+
+> Der GoLive-Blocker #1 (§16.5) ist beseitigt: aus dem Auth-Stub wurde echte
+> Anmeldung. Verifiziert: tsc sauber · **153/153 Unit-Tests** · **7/7 E2E** gegen
+> Prod-Server · Live-Login im Browser · adversarialer Security-Review (4 Angriffs-
+> Lenses) mit **0 CRITICAL**, alle substanziellen Findings gefixt.
+
+### 17.1 Was gebaut wurde
+- **Schema** (Migration `20260716050559_auth_rollen_magiclink_audit`): `User` um
+  `passwordHash?`, `role` (Enum `UserRole` ADMIN|NUTZER), `isActive`, `lastLoginAt`,
+  `rechtseinheitId` (FK, backfilled) erweitert; neue Modelle `MagicLinkToken`
+  (tokenHash @unique, expiresAt, usedAt) und `AuditLog`.
+- **Core-Libs**: `src/lib/auth.ts` (jose-JWT HS256, 7 Tage, Cookie `cockpit_session`
+  HttpOnly/SameSite lax/secure-in-Prod, Secret-Härtung; `getAktuellerNutzer` prüft
+  DB-frisch isActive/role), `token-hash.ts` (SHA-256), `audit.ts` (zentraler Writer,
+  wirft nie, Aktions-Union).
+- **Routen**: `/api/auth/login` (POST bcrypt + Rate-Limit + Dummy-Hash-Timing, DELETE
+  Logout), `/api/auth/session`, `/api/auth/magic-link` (POST, immer 200, Versand
+  fire-and-forget), `/api/auth/magic-link/[token]` (GET, atomar single-use via
+  updateMany → Cookie → /heute). Magic-Link-Mail-Event im Katalog.
+- **UI**: `src/app/login/page.tsx` + `login-client.tsx` (CREDO-Design, Passwort +
+  Magic-Link-Alternative), `logout-button.tsx` im /heute-Header.
+- **Middleware**: Edge-Guard (jose) VOR dem CSP-Block; öffentlich: /login,
+  /api/auth/*, /api/cron/*, /api/ai/callback; Rollen-Gate für /einstellungen. CSP
+  unverändert.
+- **Migration**: 26 Call-Sites in 16 Routen auf `await getAktuellerNutzer()` + 401-
+  Guard; `withAdmin` von `ADMIN_TOKEN` auf echte ADMIN-Rolle (DB-frisch); `senden()`
+  leitet bei 401 auf /login; Cleanup-Cron räumt alte Tokens/Audit-Einträge.
+- **Tests**: neue `auth.test.ts` (JWT-Roundtrip/Manipulation/Hash), `audit.test.ts`;
+  E2E per Playwright-`storageState` (einmal anmelden im global-setup → Session
+  wiederverwenden, schont die Rate-Limits) + neue `auth.spec.ts`.
+
+### 17.2 Login-Daten (Dev)
+`dimitri.riesen@fes-minden.de` / `Cockpit2026!Start` (ADMIN). Der historische Test-
+User wurde per Seed zu diesem Konto aufgewertet → **alle Bestandsdaten bleiben**.
+In Produktion: `ADMIN_INITIAL_PASSWORD` setzen + `JWT_SECRET` (openssl rand -hex 32).
+
+### 17.3 Security-Review: zurückgestellte Findings (bewusst, dokumentiert)
+- **X-Forwarded-For spoofbar** (`audit.ts:clientIp`, MINOR): sekundärer Rate-Limit-
+  Schlüssel; primäre Bremse sind die konto-gebundenen Limits. Fix braucht die
+  konkrete Reverse-Proxy-Topologie → beim Deployment auf rechte/vertrauenswürdige
+  Hop-Adresse umstellen (Code-Kommentar vorhanden).
+- **In-Memory-Rate-Limiter** (INFO): pro Prozess; bei Mehr-Instanz-Betrieb Redis
+  (im Code dokumentiert). Für Einzel-Instanz akzeptiert.
+- **Magic-Link-Token im URL-Pfad** (INFO): kann in Proxy-Access-Logs landen;
+  mitigiert durch Single-Use + 15-Min-TTL.
+- **Session-Revocation** war MAJOR → durch DB-frische `getAktuellerNutzer` GEFIXT
+  (Deaktivierung/Rollenwechsel greifen sofort; Logout bleibt clientseitig, da JWT
+  stateless — für Sofort-Kill eines gestohlenen Tokens später `tokenVersion`-Feld).
+
+### 17.4 Verbleibende GoLive-Punkte (nach AP6)
+- Backup-/DSGVO-Löschkonzept (§16.5) weiter offen.
+- Adoptions-Telemetrie (Plan-Risiko #1) weiter offen.
+- Dann: AP 3 (KI-Briefing), AP 4 (Drucker-Tiefe), AP 5 (GF-Aggregat).
