@@ -1,14 +1,14 @@
 "use client";
 
 // ============================================================
-// Einstellungen-Shell: Token-Gate + Tab-Navigation (SMTP, Vorlagen, Protokoll).
+// Einstellungen-Shell: Rollen-Gate + Tab-Navigation (SMTP, Vorlagen, Protokoll).
 // Die einzelnen Tabs liegen in eigenen Dateien; gemeinsame Bausteine in shared.tsx.
-// Uebergangs-Schutz per Admin-Token-Gate (bis RBAC, Phase 4).
+// Zugriff nur fuer Administratoren (Rollen-Check via GET /api/auth/session;
+// serverseitig schuetzt withAdmin die Endpunkte).
 // ============================================================
 import { Mail, ScrollText, Send } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { adminFetch, clearAdminToken } from "@/lib/admin-client";
 import { ProtokollTab } from "./protokoll-tab";
 import { ReminderSwitch } from "./reminder-switch";
 import { ReGateContext } from "./shared";
@@ -22,14 +22,20 @@ export function EinstellungenClient() {
   const [autorisiert, setAutorisiert] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>("smtp");
 
-  // Beim Mount pruefen, ob das hinterlegte Token gilt.
+  // Beim Mount die Session-Rolle pruefen (nur Administratoren sehen die Tabs).
   const pruefe = useCallback(async () => {
     try {
-      await adminFetch("/api/settings/smtp", "GET");
+      const res = await fetch("/api/auth/session");
+      const json = (await res.json().catch(() => null)) as { data?: { rolle?: string } } | null;
+      if (res.ok) {
+        setAutorisiert(json?.data?.rolle === "ADMIN");
+      } else {
+        // 401 = nicht angemeldet -> Gate; andere Serverfehler nicht als Verbot werten.
+        setAutorisiert(res.status !== 401);
+      }
+    } catch {
+      // Netzwerkfehler nicht als fehlende Berechtigung werten (Server schuetzt ohnehin).
       setAutorisiert(true);
-    } catch (e) {
-      // Netzwerk-/Serverfehler nicht als Token-Fehlschlag werten.
-      setAutorisiert((e as Error).message === "UNAUTHORIZED" ? false : true);
     }
   }, []);
 
@@ -37,26 +43,37 @@ export function EinstellungenClient() {
     void pruefe();
   }, [pruefe]);
 
-  // Token verwerfen und Gate erneut zeigen (bei UNAUTHORIZED aus einem Tab).
+  // Gate erneut zeigen (bei UNAUTHORIZED aus einem Tab, z.B. Session abgelaufen).
   const reGate = useCallback(() => {
-    clearAdminToken();
     setAutorisiert(false);
   }, []);
 
   if (autorisiert === null) return <Skeleton className="h-40 w-full" />;
-  if (!autorisiert) return <TokenGate onOk={() => void pruefe()} />;
+  if (!autorisiert) return <TokenGate />;
 
   return (
     <ReGateContext.Provider value={reGate}>
       <ReminderSwitch />
       <nav className="mb-6 flex gap-1 border-b border-border">
-        <TabButton aktiv={tab === "smtp"} onClick={() => setTab("smtp")} icon={<Mail className="h-4 w-4" />}>
+        <TabButton
+          aktiv={tab === "smtp"}
+          onClick={() => setTab("smtp")}
+          icon={<Mail className="h-4 w-4" />}
+        >
           SMTP
         </TabButton>
-        <TabButton aktiv={tab === "vorlagen"} onClick={() => setTab("vorlagen")} icon={<Send className="h-4 w-4" />}>
+        <TabButton
+          aktiv={tab === "vorlagen"}
+          onClick={() => setTab("vorlagen")}
+          icon={<Send className="h-4 w-4" />}
+        >
           Vorlagen
         </TabButton>
-        <TabButton aktiv={tab === "protokoll"} onClick={() => setTab("protokoll")} icon={<ScrollText className="h-4 w-4" />}>
+        <TabButton
+          aktiv={tab === "protokoll"}
+          onClick={() => setTab("protokoll")}
+          icon={<ScrollText className="h-4 w-4" />}
+        >
           Protokoll
         </TabButton>
       </nav>

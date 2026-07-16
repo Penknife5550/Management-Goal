@@ -88,9 +88,23 @@ const AMPEL_RANG: Record<Ampel, number> = { ROT: 0, GELB: 1, GRUEN: 2 };
 // Aktivitaets-Verben: heuristischer Kandidat fuer den Beitrags-Check (Drucker).
 // Bewusst konservativ (Schwere "hinweis"); die KI (AP 3) urteilt praezise.
 const AKTIVITAETS_VERBEN = [
-  "erstellen", "durchfuehren", "durchführen", "reduzieren", "optimieren", "einfuehren",
-  "einführen", "umsetzen", "machen", "organisieren", "planen", "abstimmen", "pruefen",
-  "prüfen", "bearbeiten", "erledigen", "verbessern",
+  "erstellen",
+  "durchfuehren",
+  "durchführen",
+  "reduzieren",
+  "optimieren",
+  "einfuehren",
+  "einführen",
+  "umsetzen",
+  "machen",
+  "organisieren",
+  "planen",
+  "abstimmen",
+  "pruefen",
+  "prüfen",
+  "bearbeiten",
+  "erledigen",
+  "verbessern",
 ];
 
 // ---- die fuenf Insight-Regeln ----
@@ -140,7 +154,14 @@ export function verteileQuadranten(tasks: InsightTask[]): QuadrantVerteilung {
     const q = berechneQuadrant(t.important, t.urgent);
     acc[q] += basis === "zeit" ? (t.zeitIstMin ?? 0) : 1;
   }
-  return { q1: acc[1], q2: acc[2], q3: acc[3], q4: acc[4], basis, gesamt: acc[1] + acc[2] + acc[3] + acc[4] };
+  return {
+    q1: acc[1],
+    q2: acc[2],
+    q3: acc[3],
+    q4: acc[4],
+    basis,
+    gesamt: acc[1] + acc[2] + acc[3] + acc[4],
+  };
 }
 
 /**
@@ -199,7 +220,8 @@ export function ampelTrend(goal: InsightGoal): Insight | null {
   if (ampelDelta >= 0 && fortDelta >= 0) return null;
   const teile: string[] = [];
   if (ampelDelta < 0) teile.push(`Ampel von ${vor.ampel} auf ${letzte.ampel} gefallen`);
-  if (fortDelta < 0) teile.push(`Fortschritt ${vor.fortschritt}% auf ${letzte.fortschritt}% gesunken`);
+  if (fortDelta < 0)
+    teile.push(`Fortschritt ${vor.fortschritt}% auf ${letzte.fortschritt}% gesunken`);
   return {
     typ: "trend",
     schwere: "warnung",
@@ -224,7 +246,8 @@ export function pruefeBeitrag(goal: InsightGoal): Insight | null {
       schwere: "hinweis",
       goalId: goal.id,
       titel: `Kein Outcome: ${goal.titel}`,
-      detail: "Diesem Fokus-Ziel fehlt der angestrebte Beitrag (Outcome). Was soll sich dadurch messbar veraendern?",
+      detail:
+        "Diesem Fokus-Ziel fehlt der angestrebte Beitrag (Outcome). Was soll sich dadurch messbar veraendern?",
     };
   }
   const erstesWort = o.toLowerCase().split(/\s+/)[0] ?? "";

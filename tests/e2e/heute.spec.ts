@@ -6,6 +6,8 @@
 // ============================================================
 import { expect, test } from "@playwright/test";
 
+// Session kommt aus dem global-setup (storageState) - kein Login pro Test.
+
 test("Root leitet auf /heute und rendert alle vier Sektionen", async ({ page }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/heute$/);

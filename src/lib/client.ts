@@ -16,6 +16,11 @@ export async function senden<T>(
 
   const json = (await antwort.json().catch(() => null)) as { data?: T; error?: string } | null;
 
+  // Session abgelaufen -> zurueck zum Login (nur im Browser).
+  if (antwort.status === 401 && typeof window !== "undefined") {
+    window.location.assign("/login");
+  }
+
   if (!antwort.ok || !json) {
     throw new Error(json?.error ?? "Aktion fehlgeschlagen. Bitte erneut versuchen.");
   }

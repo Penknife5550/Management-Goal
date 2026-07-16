@@ -1,6 +1,6 @@
 // ============================================================
 // /api/settings/email-log  (GET)
-// Letzte Versandprotokoll-Eintraege (max. 100). Schutz: ADMIN_TOKEN.
+// Letzte Versandprotokoll-Eintraege (max. 100). Schutz: nur Administratoren (withAdmin).
 // ============================================================
 import { jsonOk } from "@/lib/api";
 import { withAdmin } from "@/lib/admin-guard";

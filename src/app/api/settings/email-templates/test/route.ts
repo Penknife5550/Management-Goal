@@ -1,7 +1,7 @@
 // ============================================================
 // /api/settings/email-templates/test  (POST)
 // Sendet eine Test-Mail des Events an die angegebene Adresse (Sample-Payload).
-// Schutz: ADMIN_TOKEN + Rate-Limit.
+// Schutz: nur Administratoren (withAdmin) + Rate-Limit.
 // ============================================================
 import { jsonError, jsonOk, parseBody } from "@/lib/api";
 import { rateLimit, withAdmin } from "@/lib/admin-guard";
@@ -23,6 +23,7 @@ export const POST = withAdmin("POST /api/settings/email-templates/test", async (
     isTest: true,
     overrideTo: p.data.testEmail,
   });
-  if (ergebnis.status !== "SENT") return jsonError(ergebnis.detail ?? "Testversand fehlgeschlagen.", 400);
+  if (ergebnis.status !== "SENT")
+    return jsonError(ergebnis.detail ?? "Testversand fehlgeschlagen.", 400);
   return jsonOk({ status: ergebnis.status });
 });

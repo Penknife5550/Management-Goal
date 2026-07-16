@@ -65,7 +65,12 @@ export function parseKiAntwort(input: unknown): KiKlassifizierung {
   if (typeof o.important !== "boolean" || typeof o.urgent !== "boolean") {
     throw new Error("KI-Antwort: important/urgent muessen booleans sein.");
   }
-  if (typeof o.confidence !== "number" || !Number.isFinite(o.confidence) || o.confidence < 0 || o.confidence > 1) {
+  if (
+    typeof o.confidence !== "number" ||
+    !Number.isFinite(o.confidence) ||
+    o.confidence < 0 ||
+    o.confidence > 1
+  ) {
     throw new Error("KI-Antwort: confidence muss eine Zahl zwischen 0 und 1 sein.");
   }
   if (typeof o.reasoning !== "string" || o.reasoning.trim().length === 0) {

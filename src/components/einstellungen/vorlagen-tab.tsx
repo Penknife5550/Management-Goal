@@ -4,7 +4,16 @@
 import { useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { adminFetch } from "@/lib/admin-client";
-import { Banner, BTN, BTN_SEK, behandleFehler, Feld, INPUT, type TemplateRow, useAdminAction } from "./shared";
+import {
+  Banner,
+  BTN,
+  BTN_SEK,
+  behandleFehler,
+  Feld,
+  INPUT,
+  type TemplateRow,
+  useAdminAction,
+} from "./shared";
 
 export function VorlagenTab() {
   const { reGate, fehler, setFehler, erfolg, laeuft, run } = useAdminAction();
@@ -54,7 +63,8 @@ export function VorlagenTab() {
     if (!row) return;
     void run(
       "test",
-      () => adminFetch("/api/settings/email-templates/test", "POST", { event: row.event, testEmail }),
+      () =>
+        adminFetch("/api/settings/email-templates/test", "POST", { event: row.event, testEmail }),
       `Test-Mail an ${testEmail} ausgeloest.`,
     );
   }
@@ -91,36 +101,65 @@ export function VorlagenTab() {
           </span>
         </p>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={row.isActive} onChange={(e) => patch({ isActive: e.target.checked })} />
+          <input
+            type="checkbox"
+            checked={row.isActive}
+            onChange={(e) => patch({ isActive: e.target.checked })}
+          />
           aktiv
         </label>
       </div>
 
       <Feld label="Betreff">
-        <input className={INPUT} value={row.subject} onChange={(e) => patch({ subject: e.target.value })} />
+        <input
+          className={INPUT}
+          value={row.subject}
+          onChange={(e) => patch({ subject: e.target.value })}
+        />
       </Feld>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Feld label="An (leer = Standard)">
-          <input className={INPUT} value={row.recipientTo} onChange={(e) => patch({ recipientTo: e.target.value })} placeholder={row.defaultRecipientTo} />
+          <input
+            className={INPUT}
+            value={row.recipientTo}
+            onChange={(e) => patch({ recipientTo: e.target.value })}
+            placeholder={row.defaultRecipientTo}
+          />
         </Feld>
         <Feld label="Antwort-an (optional)">
-          <input className={INPUT} value={row.recipientReplyTo} onChange={(e) => patch({ recipientReplyTo: e.target.value })} />
+          <input
+            className={INPUT}
+            value={row.recipientReplyTo}
+            onChange={(e) => patch({ recipientReplyTo: e.target.value })}
+          />
         </Feld>
       </div>
 
       <Feld label="HTML-Inhalt">
-        <textarea className={`${INPUT} h-48 font-mono text-xs`} value={row.bodyHtml} onChange={(e) => patch({ bodyHtml: e.target.value })} />
+        <textarea
+          className={`${INPUT} h-48 font-mono text-xs`}
+          value={row.bodyHtml}
+          onChange={(e) => patch({ bodyHtml: e.target.value })}
+        />
       </Feld>
       <Feld label="Text-Inhalt (Fallback, optional)">
-        <textarea className={`${INPUT} h-24 font-mono text-xs`} value={row.bodyText} onChange={(e) => patch({ bodyText: e.target.value })} />
+        <textarea
+          className={`${INPUT} h-24 font-mono text-xs`}
+          value={row.bodyText}
+          onChange={(e) => patch({ bodyText: e.target.value })}
+        />
       </Feld>
 
       <div className="rounded-lg border bg-muted p-3">
         <p className="mb-1 text-xs font-medium">Verfuegbare Variablen</p>
         <div className="flex flex-wrap gap-2">
           {row.variables.map((v) => (
-            <span key={v.key} className="rounded bg-background px-2 py-0.5 text-xs" title={v.description}>
+            <span
+              key={v.key}
+              className="rounded bg-background px-2 py-0.5 text-xs"
+              title={v.description}
+            >
               {v.key}
             </span>
           ))}

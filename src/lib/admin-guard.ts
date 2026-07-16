@@ -1,8 +1,9 @@
 // ============================================================
 // src/lib/admin-guard.ts
-// Uebergangs-Schutz fuer Einstellungs-/Test-Endpunkte, solange es noch keine
-// RBAC gibt (Phase 4). Erwartet den Header "x-admin-token" == ENV ADMIN_TOKEN.
-// In Phase 4 ersetzt durch echte Auth/Rollen.
+// Schutz fuer Einstellungs-/Test-Endpunkte: echte Session + Rolle ADMIN
+// (withAdmin, ersetzt den frueheren x-admin-token-Uebergang). Cron- und
+// KI-Callback-Endpunkte bleiben bewusst secret-basiert (pruefeSecret /
+// requireCronSecret) — dort gibt es keine Nutzer-Session.
 //
 // Zusaetzlich: ein schlanker In-Memory-Rate-Limiter fuer den Test-Versand,
 // damit der Endpunkt nicht als offenes Mail-Relay missbraucht werden kann.
@@ -11,6 +12,7 @@
 import { timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
 import { jsonError } from "@/lib/api";
+import { getAktuellerNutzer, NichtAngemeldetError } from "./auth";
 
 // Laengen-sicherer Konstantzeit-Vergleich (timingSafeEqual wirft bei ungleicher Laenge).
 function vergleicheSecret(got: string, expected: string): boolean {
@@ -27,20 +29,24 @@ export function pruefeSecret(envName: string, got: string): ReturnType<typeof js
   return vergleicheSecret(got, expected) ? null : jsonError("Keine Berechtigung.", 403);
 }
 
-// Einstellungs-/Test-Routen: Header "x-admin-token" == ADMIN_TOKEN.
-export function requireAdminToken(request: NextRequest): ReturnType<typeof jsonError> | null {
-  return pruefeSecret("ADMIN_TOKEN", request.headers.get("x-admin-token") ?? "");
-}
-
-// Wrapper fuer admin-geschuetzte Routen: Token-Guard + einheitliches try/catch/500.
-// Spart den wiederholten Vorspann in jeder Settings-Route.
+// Wrapper fuer admin-geschuetzte Routen: Session-/Rollen-Guard + einheitliches
+// try/catch/500. Spart den wiederholten Vorspann in jeder Settings-Route.
 export function withAdmin(
   name: string,
   handler: (request: NextRequest) => Promise<Response> | Response,
 ): (request: NextRequest) => Promise<Response> {
   return async (request) => {
-    const verweigert = requireAdminToken(request);
-    if (verweigert) return verweigert;
+    // DB-frische Pruefung (getAktuellerNutzer): ein herabgestufter oder
+    // deaktivierter Nutzer verliert die Admin-Rechte sofort, nicht erst bei
+    // Token-Ablauf.
+    let nutzer;
+    try {
+      nutzer = await getAktuellerNutzer();
+    } catch (fehler) {
+      if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
+      throw fehler;
+    }
+    if (nutzer.rolle !== "ADMIN") return jsonError("Keine Berechtigung.", 403);
     try {
       return await handler(request);
     } catch (fehler) {

@@ -6,7 +6,7 @@
 // ============================================================
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/api";
-import { getAktuellerNutzer } from "@/lib/auth";
+import { getAktuellerNutzer, NichtAngemeldetError } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findeZielFuerNutzer, type GoalMitLeads, toZielDTO } from "@/lib/goal-service";
 import {
@@ -24,11 +24,12 @@ type PatchErgebnis = { ok: false; fehler: AenderungsErgebnis } | { ok: true; goa
 export async function GET(_request: NextRequest, { params }: Kontext) {
   try {
     const { id } = await params;
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
     const goal = await findeZielFuerNutzer(id, nutzer.id);
     if (!goal) return jsonError("Ziel nicht gefunden.", 404);
     return jsonOk(toZielDTO(goal));
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("GET /api/goals/[id] fehlgeschlagen:", fehler);
     return jsonError("Ziel konnte nicht geladen werden.", 500);
   }
@@ -37,7 +38,7 @@ export async function GET(_request: NextRequest, { params }: Kontext) {
 export async function PATCH(request: NextRequest, { params }: Kontext) {
   try {
     const { id } = await params;
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
 
     const body = await request.json().catch(() => null);
     const parsed = goalUpdateSchema.safeParse(body);
@@ -96,6 +97,7 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
     }
     return jsonOk(toZielDTO(ergebnis.goal));
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("PATCH /api/goals/[id] fehlgeschlagen:", fehler);
     return jsonError("Ziel konnte nicht aktualisiert werden.", 500);
   }
@@ -104,7 +106,7 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
 export async function DELETE(_request: NextRequest, { params }: Kontext) {
   try {
     const { id } = await params;
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
 
     const vorhanden = await findeZielFuerNutzer(id, nutzer.id);
     if (!vorhanden) return jsonError("Ziel nicht gefunden.", 404);
@@ -119,6 +121,7 @@ export async function DELETE(_request: NextRequest, { params }: Kontext) {
     });
     return jsonOk(toZielDTO(goal));
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("DELETE /api/goals/[id] fehlgeschlagen:", fehler);
     return jsonError("Ziel konnte nicht archiviert werden.", 500);
   }

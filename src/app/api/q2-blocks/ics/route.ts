@@ -4,13 +4,14 @@
 // Wiederholung) zum Import in einen beliebigen Kalender.
 // ============================================================
 import { NextResponse } from "next/server";
-import { getAktuellerNutzer } from "@/lib/auth";
+import { jsonError } from "@/lib/api";
+import { getAktuellerNutzer, NichtAngemeldetError } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { baueICS } from "@/lib/q2";
 
 export async function GET() {
   try {
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
     const bloecke = await prisma.q2Block.findMany({
       where: { ownerId: nutzer.id },
       include: { goal: { select: { titel: true } } },
@@ -37,6 +38,7 @@ export async function GET() {
       },
     });
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("GET /api/q2-blocks/ics fehlgeschlagen:", fehler);
     return new NextResponse("ICS-Export fehlgeschlagen.", { status: 500 });
   }

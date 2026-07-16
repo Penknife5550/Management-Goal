@@ -7,9 +7,20 @@
 // Begruendung: 4DX/Collins/OKR-Forschung (siehe RECHERCHE Abschnitt 3).
 export const WIG_LIMIT = 3;
 
-// Hartcodierter Test-Kontext (kein Multi-User in diesem Slice, Phase 4 folgt).
+// Historische Seed-IDs: der einstige Test-Nutzer ist heute das Admin-Konto
+// (Seed wertet ihn auf, damit Bestandsdaten beim Owner bleiben).
 export const TEST_USER_ID = "test-user-fuehrungskraft";
 export const TEST_RECHTSEINHEIT_ID = "test-rechtseinheit-verwaltung";
+
+// ---- Auth (AP6) ----
+export const SESSION_COOKIE = "cockpit_session";
+export const SESSION_DAUER_TAGE = 7;
+// Magic-Link: kurzlebig + Single-Use (Hash in DB, Klartext nur in der Mail).
+export const MAGIC_LINK_TTL_MIN = 15;
+// Retention der Audit-Eintraege (DSGVO: begrenzen, aber lang genug fuer Nachweis).
+export const RETENTION_AUDITLOG_TAGE = 365;
+// Retention verbrauchter/abgelaufener Magic-Link-Tokens.
+export const RETENTION_MAGICLINK_TAGE = 7;
 
 // Schwelle, ab der der Countdown sanft hervorgehoben wird (Pacing, keine Drohuhr).
 export const COUNTDOWN_WARN_TAGE = 7;

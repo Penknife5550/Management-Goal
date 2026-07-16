@@ -22,7 +22,10 @@ export async function parseBody<S extends z.ZodTypeAny>(
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
-    return { ok: false, response: jsonError(parsed.error.issues[0]?.message ?? "Ungueltige Eingabe.", 400) };
+    return {
+      ok: false,
+      response: jsonError(parsed.error.issues[0]?.message ?? "Ungueltige Eingabe.", 400),
+    };
   }
   return { ok: true, data: parsed.data };
 }

@@ -14,8 +14,17 @@ vi.mock("@/lib/db", () => ({
     task: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
   },
 }));
-vi.mock("@/lib/auth", () => ({
-  getAktuellerNutzer: () => ({ id: "u1", rechtseinheitId: "r1" }),
+// importOriginal: alle echten Exporte (inkl. NichtAngemeldetError) bleiben
+// erhalten, nur getAktuellerNutzer wird durch einen festen Nutzer ersetzt.
+vi.mock("@/lib/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth")>()),
+  getAktuellerNutzer: async () => ({
+    id: "u1",
+    rechtseinheitId: "r1",
+    rolle: "NUTZER" as const,
+    email: "u1@test.de",
+    name: "U1",
+  }),
 }));
 
 import { POST as callback } from "@/app/api/ai/callback/route";
@@ -128,7 +137,9 @@ describe("POST /api/tasks/:id/ai-suggestion/accept", () => {
   const ctx = { params: Promise.resolve({ id: "t1" }) };
 
   it("uebernimmt den Vorschlag: important/urgent gemaess Quadrant, ai* geraeumt, USER", async () => {
-    m.findFirst.mockResolvedValue(task({ aiQuadrantSuggestion: 2, aiConfidence: 0.8, aiReasoning: "x" }) as never);
+    m.findFirst.mockResolvedValue(
+      task({ aiQuadrantSuggestion: 2, aiConfidence: 0.8, aiReasoning: "x" }) as never,
+    );
     m.update.mockResolvedValue(task({ important: true, urgent: false }) as never);
 
     const res = await accept({} as never, ctx);

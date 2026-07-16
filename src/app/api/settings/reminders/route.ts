@@ -2,7 +2,7 @@
 // /api/settings/reminders
 // GET - globalen Reminder-Kill-Switch lesen
 // PUT - Kill-Switch setzen { enabled: boolean }
-// Schutz: ADMIN_TOKEN.
+// Schutz: nur Administratoren (Session-Rolle via withAdmin).
 // ============================================================
 import { jsonOk, parseBody } from "@/lib/api";
 import { withAdmin } from "@/lib/admin-guard";

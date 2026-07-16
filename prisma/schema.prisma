@@ -38,17 +38,25 @@ enum EnrichmentSource {
   AI_CLOUD
 }
 
+// Rollen (AP6). ADMIN darf Einstellungen (SMTP/Vorlagen/Protokolle) verwalten;
+// weitere Rollen (z.B. GF fuer das Aggregat, AP5) folgen bei Bedarf.
+enum UserRole {
+  ADMIN
+  NUTZER
+}
+
 // Rechtseinheit = eine der Einrichtungen (hier nur Stammtabelle fuer den Scope).
 model Rechtseinheit {
   id      String  @id @default(cuid())
   name    String
   kuerzel String?
   goals   Goal[]
+  users   User[]
 
   @@map("rechtseinheit")
 }
 
-// Minimaler Nutzer fuer den Owner-Scope (Nutzerverwaltung kommt in Phase 4).
+// Nutzer mit echter Auth (AP6): Passwort-Login (bcrypt) und/oder Magic-Link.
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -61,7 +69,56 @@ model User {
   // Pro-User-Schalter; eine eigene Profil-UI folgt mit der Nutzerverwaltung (Phase 4).
   emailRemindersEnabled Boolean @default(true)
 
+  // ---- Auth (AP6) ----
+  // bcrypt-Hash; null = Nutzer meldet sich ausschliesslich per Magic-Link an.
+  passwordHash String?
+  role         UserRole  @default(NUTZER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+
+  // Scope-Zugehoerigkeit (ersetzt die hartcodierte Konstante des Auth-Stubs).
+  rechtseinheitId String
+  rechtseinheit   Rechtseinheit @relation(fields: [rechtseinheitId], references: [id])
+
+  magicLinkTokens MagicLinkToken[]
+  auditLogs       AuditLog[]
+
   @@map("user")
+}
+
+// Magic-Link-Token (AP6): Einmal-Anmeldung per E-Mail-Link. Es wird NUR der
+// SHA-256-Hash gespeichert (DB-Leak verraet keine gueltigen Links). Single-Use
+// via usedAt; Ablauf via expiresAt; Cleanup-Index auf createdAt.
+model MagicLinkToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+  @@map("magic_link_token")
+}
+
+// Audit-Log (AP6, Personalrat/DSB-Zusage): sicherheitsrelevante Ereignisse,
+// append-only. Geschrieben ausschliesslich ueber lib/audit.ts (zentraler
+// Writer, konsistente Aktions-Codes). userId null = fehlgeschlagene Anmeldung
+// ohne bekannten Nutzer.
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  aktion    String // z.B. "LOGIN_ERFOLG", "LOGIN_FEHLGESCHLAGEN", "LOGOUT", "MAGIC_LINK_ANGEFORDERT"
+  details   Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([aktion])
+  @@index([createdAt])
+  @@map("audit_log")
 }
 
 model Goal {

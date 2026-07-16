@@ -40,21 +40,31 @@ describe("EISENHOWER_QUADRANTEN", () => {
 
 describe("istKiVorschlagOffen", () => {
   it("false ohne Vorschlag", () => {
-    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: null, important: false, urgent: false })).toBe(false);
+    expect(
+      istKiVorschlagOffen({ aiQuadrantSuggestion: null, important: false, urgent: false }),
+    ).toBe(false);
   });
 
   it("false wenn Vorschlag dem manuellen Quadranten entspricht", () => {
     // important+urgent => Quadrant 1; Vorschlag 1 => nichts zu entscheiden.
-    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: 1, important: true, urgent: true })).toBe(false);
+    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: 1, important: true, urgent: true })).toBe(
+      false,
+    );
   });
 
   it("true wenn Vorschlag abweicht", () => {
     // important=false,urgent=false => Quadrant 4; Vorschlag 2 weicht ab.
-    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: 2, important: false, urgent: false })).toBe(true);
+    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: 2, important: false, urgent: false })).toBe(
+      true,
+    );
   });
 
   it("false bei ungueltigem Vorschlagswert", () => {
-    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: 0, important: false, urgent: false })).toBe(false);
-    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: 5, important: false, urgent: false })).toBe(false);
+    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: 0, important: false, urgent: false })).toBe(
+      false,
+    );
+    expect(istKiVorschlagOffen({ aiQuadrantSuggestion: 5, important: false, urgent: false })).toBe(
+      false,
+    );
   });
 });

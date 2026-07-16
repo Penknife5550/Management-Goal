@@ -1,7 +1,7 @@
 // ============================================================
 // /api/settings/smtp/test  (POST)
 // Sendet eine Test-Mail mit der aktuellen SMTP-Konfiguration.
-// Schutz: ADMIN_TOKEN + Rate-Limit (kein offenes Relay).
+// Schutz: nur Administratoren (withAdmin) + Rate-Limit (kein offenes Relay).
 // ============================================================
 import { jsonError, jsonOk, parseBody } from "@/lib/api";
 import { rateLimit, withAdmin } from "@/lib/admin-guard";

@@ -4,6 +4,8 @@
 // ============================================================
 import { expect, test } from "@playwright/test";
 
+// Session kommt aus dem global-setup (storageState) - kein Login pro Test.
+
 test("Ziel anlegen, auf Fokus heben und im Scoreboard sehen", async ({ page }) => {
   const titel = `E2E-Ziel ${Date.now()}`;
 

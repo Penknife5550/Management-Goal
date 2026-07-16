@@ -36,7 +36,14 @@ describe("naechstesDatum", () => {
 });
 
 describe("baueICS", () => {
-  const block = { id: "abc", titel: "Strategie-Fokus", wochentag: 2, startMinute: 540, dauerMin: 90, goalTitel: "Onboarding" };
+  const block = {
+    id: "abc",
+    titel: "Strategie-Fokus",
+    wochentag: 2,
+    startMinute: 540,
+    dauerMin: 90,
+    goalTitel: "Onboarding",
+  };
 
   it("erzeugt ein gueltiges VCALENDAR mit woechentlicher Wiederholung", () => {
     const ics = baueICS([block], MO_0800);

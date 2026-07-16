@@ -163,7 +163,10 @@ export function CheckInClient() {
           Keine aktiven WIGs im Fokus. Hol dir im Cockpit 1–3 wirklich wichtige Ziele nach oben –
           dann führt dich der Check-in durch.
         </p>
-        <Link href="/ziele" className="mt-4 inline-block rounded-lg border border-input px-4 py-2 text-sm font-medium">
+        <Link
+          href="/ziele"
+          className="mt-4 inline-block rounded-lg border border-input px-4 py-2 text-sm font-medium"
+        >
           Zum Cockpit
         </Link>
       </div>
@@ -176,7 +179,10 @@ export function CheckInClient() {
   return (
     <div>
       {/* Fortschritt durch die WIGs */}
-      <div className="mb-4 flex items-center gap-2" aria-label={`WIG ${schritt + 1} von ${wigs.length}`}>
+      <div
+        className="mb-4 flex items-center gap-2"
+        aria-label={`WIG ${schritt + 1} von ${wigs.length}`}
+      >
         {wigs.map((_, i) => (
           <span
             key={i}
@@ -223,7 +229,9 @@ export function CheckInClient() {
         {/* Fortschritt */}
         <div className="mt-4">
           <div className="mb-1 flex items-center justify-between text-sm">
-            <label htmlFor="checkin-fortschritt" className="font-medium">Fortschritt</label>
+            <label htmlFor="checkin-fortschritt" className="font-medium">
+              Fortschritt
+            </label>
             <span className="font-medium tabular-nums">{w.fortschritt}%</span>
           </div>
           <input
@@ -233,7 +241,9 @@ export function CheckInClient() {
             max={100}
             step={5}
             value={w.fortschritt}
-            onChange={(e) => aktualisiereAktuelle({ fortschritt: Math.round(Number(e.target.value)) })}
+            onChange={(e) =>
+              aktualisiereAktuelle({ fortschritt: Math.round(Number(e.target.value)) })
+            }
             className="w-full accent-[var(--color-accent)]"
             aria-label={`Fortschritt von ${w.titel} in Prozent`}
           />
@@ -250,7 +260,9 @@ export function CheckInClient() {
                 const erfuellt = l.istwert >= l.zielwert;
                 return (
                   <li key={l.id} className="flex items-center gap-2 text-sm">
-                    <span className="flex-1 truncate" title={l.beschreibung}>{l.beschreibung}</span>
+                    <span className="flex-1 truncate" title={l.beschreibung}>
+                      {l.beschreibung}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setLeadIstwert(l.id, Math.max(l.istwert - 1, 0))}
@@ -260,7 +272,9 @@ export function CheckInClient() {
                     >
                       <Minus size={14} aria-hidden="true" />
                     </button>
-                    <span className={`w-10 text-center text-xs tabular-nums ${erfuellt ? "text-status-gruen-text" : "text-muted-foreground"}`}>
+                    <span
+                      className={`w-10 text-center text-xs tabular-nums ${erfuellt ? "text-status-gruen-text" : "text-muted-foreground"}`}
+                    >
                       {l.istwert}/{l.zielwert}
                     </span>
                     <button

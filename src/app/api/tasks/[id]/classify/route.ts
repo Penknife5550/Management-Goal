@@ -9,7 +9,7 @@
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk } from "@/lib/api";
 import { baueKlassifizierungsPrompt, jobKey } from "@/lib/ai-eisenhower";
-import { getAktuellerNutzer } from "@/lib/auth";
+import { getAktuellerNutzer, NichtAngemeldetError } from "@/lib/auth";
 import { findeTaskFuerNutzer } from "@/lib/task-service";
 
 type Kontext = { params: Promise<{ id: string }> };
@@ -17,14 +17,17 @@ type Kontext = { params: Promise<{ id: string }> };
 export async function POST(_request: NextRequest, { params }: Kontext) {
   try {
     const { id } = await params;
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
 
     const task = await findeTaskFuerNutzer(id, nutzer.id);
     if (!task) return jsonError("Aufgabe nicht gefunden.", 404);
 
     // Schicht 1: liegt schon ein KI-Vorschlag vor, nicht erneut anstossen.
     if (task.lastModifiedBy !== "USER") {
-      return jsonError("Es liegt bereits ein KI-Vorschlag vor. Bitte erst uebernehmen oder verwerfen.", 409);
+      return jsonError(
+        "Es liegt bereits ein KI-Vorschlag vor. Bitte erst uebernehmen oder verwerfen.",
+        409,
+      );
     }
 
     const webhookUrl = process.env.N8N_EISENHOWER_WEBHOOK_URL;
@@ -56,6 +59,7 @@ export async function POST(_request: NextRequest, { params }: Kontext) {
 
     return jsonOk({ angestossen: true }, 202);
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("POST /api/tasks/[id]/classify fehlgeschlagen:", fehler);
     return jsonError("KI-Klassifizierung konnte nicht angestossen werden.", 500);
   }

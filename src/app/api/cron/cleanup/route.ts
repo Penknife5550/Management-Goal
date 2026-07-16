@@ -1,6 +1,7 @@
 // ============================================================
 // GET /api/cron/cleanup
-// Retention-Bereinigung alter Protokolle (EmailLog/ReminderDispatch).
+// Retention-Bereinigung alter Protokolle (EmailLog/ReminderDispatch/
+// MagicLinkToken/AuditLog, siehe lib/retention.ts).
 // Geschuetzt mit CRON_SECRET. Beispiel (Host-Cron, woechentlich):
 //   0 3 * * 0 curl -fsS -H "Authorization: Bearer $CRON_SECRET" \
 //             http://localhost:3000/api/cron/cleanup

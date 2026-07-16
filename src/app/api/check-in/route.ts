@@ -8,7 +8,7 @@
 import { randomUUID } from "crypto";
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk, parseBody } from "@/lib/api";
-import { getAktuellerNutzer } from "@/lib/auth";
+import { getAktuellerNutzer, NichtAngemeldetError } from "@/lib/auth";
 import { berechneWin, pruefeCheckinScope } from "@/lib/check-in";
 import { prisma } from "@/lib/db";
 import { type GoalMitLeads, toZielDTO } from "@/lib/goal-service";
@@ -17,7 +17,7 @@ import { checkInSchema } from "@/lib/validation/goal";
 
 export async function POST(request: NextRequest) {
   try {
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
     const p = await parseBody(request, checkInSchema);
     if (!p.ok) return p.response;
     const eingabe = p.data;
@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
 
     return jsonOk({ sessionId, ziele: aktualisiert.map(toZielDTO), wins });
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("POST /api/check-in fehlgeschlagen:", fehler);
     return jsonError("Check-in konnte nicht gespeichert werden.", 500);
   }

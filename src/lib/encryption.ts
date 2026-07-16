@@ -61,7 +61,9 @@ export function decrypt(encryptedText: string): string {
     // Struktur passte (iv:tag:data, korrekte Laengen), aber Entschluesselung schlug
     // fehl -> kein Altdaten-Klartext, sondern Schluessel-Mismatch/Manipulation.
     // NICHT den Ciphertext als Klartext zurueckgeben (sonst stiller SMTP-Auth-Fehler).
-    throw new Error("Entschluesselung fehlgeschlagen — ENCRYPTION_KEY passt nicht zum gespeicherten Wert.");
+    throw new Error(
+      "Entschluesselung fehlgeschlagen — ENCRYPTION_KEY passt nicht zum gespeicherten Wert.",
+    );
   }
 }
 

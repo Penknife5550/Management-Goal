@@ -84,8 +84,18 @@ describe("dispatchWeeklyReminders", () => {
   });
 
   it("ein einzelner DB-Fehler bricht den Lauf NICHT ab", async () => {
-    m.goals.mockResolvedValue([goal({ id: "g1", ownerId: "u1", owner: { email: "a@credo-gruppe.de", name: "A", emailRemindersEnabled: true } }),
-                               goal({ id: "g2", ownerId: "u2", owner: { email: "b@credo-gruppe.de", name: "B", emailRemindersEnabled: true } })] as never);
+    m.goals.mockResolvedValue([
+      goal({
+        id: "g1",
+        ownerId: "u1",
+        owner: { email: "a@credo-gruppe.de", name: "A", emailRemindersEnabled: true },
+      }),
+      goal({
+        id: "g2",
+        ownerId: "u2",
+        owner: { email: "b@credo-gruppe.de", name: "B", emailRemindersEnabled: true },
+      }),
+    ] as never);
     m.create.mockRejectedValueOnce(new Error("connection drop")); // erster Owner
     const r = await dispatchWeeklyReminders(JETZT);
     // zweiter Owner wird trotzdem versendet

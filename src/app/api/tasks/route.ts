@@ -6,7 +6,7 @@
 // ============================================================
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk, parseBody } from "@/lib/api";
-import { getAktuellerNutzer } from "@/lib/auth";
+import { getAktuellerNutzer, NichtAngemeldetError } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findeZielFuerNutzer } from "@/lib/goal-service";
 import { TASK_INCLUDE, toTaskDTO } from "@/lib/task-service";
@@ -14,7 +14,7 @@ import { taskCreateSchema } from "@/lib/validation/task";
 
 export async function GET() {
   try {
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
     const tasks = await prisma.task.findMany({
       where: { ownerId: nutzer.id },
       include: TASK_INCLUDE,
@@ -22,6 +22,7 @@ export async function GET() {
     });
     return jsonOk(tasks.map(toTaskDTO));
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("GET /api/tasks fehlgeschlagen:", fehler);
     return jsonError("Aufgaben konnten nicht geladen werden.", 500);
   }
@@ -29,7 +30,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
     const p = await parseBody(request, taskCreateSchema);
     if (!p.ok) return p.response;
     const d = p.data;
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
     });
     return jsonOk(toTaskDTO(task), 201);
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("POST /api/tasks fehlgeschlagen:", fehler);
     return jsonError("Aufgabe konnte nicht angelegt werden.", 500);
   }

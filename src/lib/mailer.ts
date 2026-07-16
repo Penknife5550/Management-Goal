@@ -114,7 +114,9 @@ async function createTransporter(): Promise<{
     return { transporter: nodemailer.createTransport({ jsonTransport: true }), from };
   }
 
-  const signatur = [config.host, config.port, config.secure, config.username, config.password].join("|");
+  const signatur = [config.host, config.port, config.secure, config.username, config.password].join(
+    "|",
+  );
   if (transporterCache?.signatur !== signatur) {
     transporterCache?.transporter.close();
     transporterCache = {
@@ -153,9 +155,7 @@ interface MailOptions {
   text?: string;
 }
 
-export type SendEmailResult =
-  | { ok: true; messageId?: string }
-  | { ok: false; error: string };
+export type SendEmailResult = { ok: true; messageId?: string } | { ok: false; error: string };
 
 export async function sendEmailDetailed(options: MailOptions): Promise<SendEmailResult> {
   const t = await createTransporter();
@@ -175,7 +175,10 @@ export async function sendEmailDetailed(options: MailOptions): Promise<SendEmail
     return { ok: true, messageId: info.messageId };
   } catch (error) {
     // Roh nur ins Server-Log; nach aussen nur die kategorisierte Meldung.
-    console.error("[Mailer] Versand fehlgeschlagen:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "[Mailer] Versand fehlgeschlagen:",
+      error instanceof Error ? error.message : String(error),
+    );
     return { ok: false, error: mapSmtpError(error) };
   }
 }
@@ -187,7 +190,12 @@ export async function testSmtpConnection(
   testEmail: string,
 ): Promise<{ success: boolean; error?: string; durationMs: number; startedAt: number }> {
   const start = Date.now();
-  const fail = (error: string) => ({ success: false, error, durationMs: Date.now() - start, startedAt: start });
+  const fail = (error: string) => ({
+    success: false,
+    error,
+    durationMs: Date.now() - start,
+    startedAt: start,
+  });
   try {
     const t = await createTransporter();
     if (!t) return fail("SMTP ist nicht konfiguriert oder deaktiviert.");
@@ -204,7 +212,10 @@ export async function testSmtpConnection(
     }
     return { success: true, durationMs: Date.now() - start, startedAt: start };
   } catch (error) {
-    console.error("[Mailer] SMTP-Test fehlgeschlagen:", error instanceof Error ? error.message : String(error));
+    console.error(
+      "[Mailer] SMTP-Test fehlgeschlagen:",
+      error instanceof Error ? error.message : String(error),
+    );
     return fail(mapSmtpError(error));
   }
 }
@@ -295,7 +306,10 @@ export function renderEventEmail(
   if (options?.overrideTo) {
     // Test-Versand: auch die frei eingegebene Zieladresse muss Pattern + Allowlist erfuellen.
     if (!EMAIL_PATTERN.test(options.overrideTo) || !istErlaubteAdresse(options.overrideTo)) {
-      return { rendered: null, skipReason: `Empfaenger "${options.overrideTo}" ist nicht zugelassen` };
+      return {
+        rendered: null,
+        skipReason: `Empfaenger "${options.overrideTo}" ist nicht zugelassen`,
+      };
     }
     return { rendered: { to: options.overrideTo, replyTo, ...body } };
   }

@@ -18,7 +18,10 @@ import { aiCallbackSchema } from "@/lib/validation/task";
 
 export async function POST(request: NextRequest) {
   try {
-    const verweigert = pruefeSecret("AI_CALLBACK_SECRET", request.headers.get("x-ai-callback-secret") ?? "");
+    const verweigert = pruefeSecret(
+      "AI_CALLBACK_SECRET",
+      request.headers.get("x-ai-callback-secret") ?? "",
+    );
     if (verweigert) return verweigert;
 
     const body = await request.json().catch(() => null);

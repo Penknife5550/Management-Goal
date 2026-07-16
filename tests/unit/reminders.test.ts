@@ -11,34 +11,70 @@ const vorTagen = (n: number) => new Date(JETZT.getTime() - n * 24 * 60 * 60 * 10
 
 describe("istWigFaellig", () => {
   it("nur FOKUS-WIGs sind ueberhaupt faellig", () => {
-    expect(istWigFaellig({ status: "BACKLOG", lastCheckinAt: vorTagen(30), createdAt: vorTagen(30) }, JETZT)).toBe(false);
-    expect(istWigFaellig({ status: "ERREICHT", lastCheckinAt: vorTagen(30), createdAt: vorTagen(30) }, JETZT)).toBe(false);
+    expect(
+      istWigFaellig(
+        { status: "BACKLOG", lastCheckinAt: vorTagen(30), createdAt: vorTagen(30) },
+        JETZT,
+      ),
+    ).toBe(false);
+    expect(
+      istWigFaellig(
+        { status: "ERREICHT", lastCheckinAt: vorTagen(30), createdAt: vorTagen(30) },
+        JETZT,
+      ),
+    ).toBe(false);
   });
 
   it("faellig, wenn letzter Check-in laenger als STALE_TAGE her ist", () => {
-    expect(istWigFaellig({ status: "FOKUS", lastCheckinAt: vorTagen(STALE_TAGE + 1), createdAt: vorTagen(40) }, JETZT)).toBe(true);
+    expect(
+      istWigFaellig(
+        { status: "FOKUS", lastCheckinAt: vorTagen(STALE_TAGE + 1), createdAt: vorTagen(40) },
+        JETZT,
+      ),
+    ).toBe(true);
   });
 
   it("nicht faellig, wenn juengst eingecheckt", () => {
-    expect(istWigFaellig({ status: "FOKUS", lastCheckinAt: vorTagen(2), createdAt: vorTagen(40) }, JETZT)).toBe(false);
+    expect(
+      istWigFaellig(
+        { status: "FOKUS", lastCheckinAt: vorTagen(2), createdAt: vorTagen(40) },
+        JETZT,
+      ),
+    ).toBe(false);
   });
 
   it("genau an der Grenze (STALE_TAGE Tage) ist faellig", () => {
-    expect(istWigFaellig({ status: "FOKUS", lastCheckinAt: vorTagen(STALE_TAGE), createdAt: vorTagen(40) }, JETZT)).toBe(true);
+    expect(
+      istWigFaellig(
+        { status: "FOKUS", lastCheckinAt: vorTagen(STALE_TAGE), createdAt: vorTagen(40) },
+        JETZT,
+      ),
+    ).toBe(true);
   });
 
   it("knapp unter der Grenze (STALE_TAGE-1) ist NICHT faellig", () => {
-    expect(istWigFaellig({ status: "FOKUS", lastCheckinAt: vorTagen(STALE_TAGE - 1), createdAt: vorTagen(40) }, JETZT)).toBe(false);
+    expect(
+      istWigFaellig(
+        { status: "FOKUS", lastCheckinAt: vorTagen(STALE_TAGE - 1), createdAt: vorTagen(40) },
+        JETZT,
+      ),
+    ).toBe(false);
   });
 
   it("ohne Check-in zaehlt createdAt als Bezug", () => {
-    expect(istWigFaellig({ status: "FOKUS", lastCheckinAt: null, createdAt: vorTagen(10) }, JETZT)).toBe(true);
-    expect(istWigFaellig({ status: "FOKUS", lastCheckinAt: null, createdAt: vorTagen(3) }, JETZT)).toBe(false);
+    expect(
+      istWigFaellig({ status: "FOKUS", lastCheckinAt: null, createdAt: vorTagen(10) }, JETZT),
+    ).toBe(true);
+    expect(
+      istWigFaellig({ status: "FOKUS", lastCheckinAt: null, createdAt: vorTagen(3) }, JETZT),
+    ).toBe(false);
   });
 });
 
 describe("buendleNachOwner", () => {
-  const owner = (over: Partial<{ email: string; name: string; emailRemindersEnabled: boolean }> = {}) => ({
+  const owner = (
+    over: Partial<{ email: string; name: string; emailRemindersEnabled: boolean }> = {},
+  ) => ({
     email: "fk@credo-gruppe.de",
     name: "Fuehrungskraft",
     emailRemindersEnabled: true,

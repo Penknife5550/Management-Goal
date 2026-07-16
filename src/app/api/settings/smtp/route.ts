@@ -2,7 +2,7 @@
 // /api/settings/smtp
 // GET  - SMTP-Konfiguration laden (Passwort maskiert)
 // PUT  - SMTP-Konfiguration speichern (Passwort verschluesselt)
-// Schutz: ADMIN_TOKEN (Uebergang bis RBAC, Phase 4).
+// Schutz: nur Administratoren (Session-Rolle via withAdmin).
 // ============================================================
 import { jsonError, jsonOk, parseBody } from "@/lib/api";
 import { withAdmin } from "@/lib/admin-guard";
@@ -26,10 +26,15 @@ const DEFAULTS = {
 
 export const GET = withAdmin("GET /api/settings/smtp", async () => {
   const config = await prisma.smtpConfig.findUnique({ where: { id: "default" } });
-  if (!config) return jsonOk({ ...DEFAULTS, password: "", encryptionConfigured: isEncryptionConfigured() });
+  if (!config)
+    return jsonOk({ ...DEFAULTS, password: "", encryptionConfigured: isEncryptionConfigured() });
   // Passwort niemals im Klartext herausgeben.
   const { password, ...rest } = config;
-  return jsonOk({ ...rest, password: password ? MASKE : "", encryptionConfigured: isEncryptionConfigured() });
+  return jsonOk({
+    ...rest,
+    password: password ? MASKE : "",
+    encryptionConfigured: isEncryptionConfigured(),
+  });
 });
 
 export const PUT = withAdmin("PUT /api/settings/smtp", async (request) => {
@@ -83,6 +88,10 @@ export const PUT = withAdmin("PUT /api/settings/smtp", async (request) => {
     });
 
     const { password, ...rest } = gespeichert;
-    return jsonOk({ ...rest, password: password ? MASKE : "", encryptionConfigured: isEncryptionConfigured() });
+    return jsonOk({
+      ...rest,
+      password: password ? MASKE : "",
+      encryptionConfigured: isEncryptionConfigured(),
+    });
   }
 });

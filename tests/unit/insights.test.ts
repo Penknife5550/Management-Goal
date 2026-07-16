@@ -36,12 +36,20 @@ function ziel(over: Partial<InsightGoal> = {}): InsightGoal {
     ...over,
   };
 }
-const task = (important: boolean, urgent: boolean, zeitIstMin: number | null = null): InsightTask => ({
+const task = (
+  important: boolean,
+  urgent: boolean,
+  zeitIstMin: number | null = null,
+): InsightTask => ({
   important,
   urgent,
   zeitIstMin,
 });
-const checkin = (ampel: InsightCheckIn["ampel"], fortschritt: number, tage: number): InsightCheckIn => ({
+const checkin = (
+  ampel: InsightCheckIn["ampel"],
+  fortschritt: number,
+  tage: number,
+): InsightCheckIn => ({
   ampel,
   fortschritt,
   createdAt: vorTagen(tage),
@@ -75,28 +83,38 @@ describe("leadErfuellung", () => {
 
 describe("erkenneWatermelon", () => {
   it("meldet gruen aussen, Lead Measures hinten", () => {
-    const w = erkenneWatermelon(ziel({ ampel: "GRUEN", leadMeasures: [{ zielwert: 10, istwert: 2 }] }));
+    const w = erkenneWatermelon(
+      ziel({ ampel: "GRUEN", leadMeasures: [{ zielwert: 10, istwert: 2 }] }),
+    );
     expect(w?.typ).toBe("watermelon");
     expect(w?.schwere).toBe("warnung");
     expect(w?.kennzahl).toBe(20);
   });
   it("greift auch ueber hohen Fortschritt bei gelber Ampel", () => {
-    const w = erkenneWatermelon(ziel({ ampel: "GELB", fortschritt: 80, leadMeasures: [{ zielwert: 10, istwert: 1 }] }));
+    const w = erkenneWatermelon(
+      ziel({ ampel: "GELB", fortschritt: 80, leadMeasures: [{ zielwert: 10, istwert: 1 }] }),
+    );
     expect(w).not.toBeNull();
   });
   it("kein Urteil ohne Lead Measures", () => {
     expect(erkenneWatermelon(ziel({ ampel: "GRUEN", leadMeasures: [] }))).toBeNull();
   });
   it("schweigt, wenn die Lead Measures gut laufen", () => {
-    expect(erkenneWatermelon(ziel({ ampel: "GRUEN", leadMeasures: [{ zielwert: 10, istwert: 8 }] }))).toBeNull();
+    expect(
+      erkenneWatermelon(ziel({ ampel: "GRUEN", leadMeasures: [{ zielwert: 10, istwert: 8 }] })),
+    ).toBeNull();
   });
   it("schweigt bei niedrigem Fortschritt + gelber Ampel", () => {
     expect(
-      erkenneWatermelon(ziel({ ampel: "GELB", fortschritt: 50, leadMeasures: [{ zielwert: 10, istwert: 1 }] })),
+      erkenneWatermelon(
+        ziel({ ampel: "GELB", fortschritt: 50, leadMeasures: [{ zielwert: 10, istwert: 1 }] }),
+      ),
     ).toBeNull();
   });
   it("nur fuer FOKUS-Ziele", () => {
-    expect(erkenneWatermelon(ziel({ status: "BACKLOG", leadMeasures: [{ zielwert: 10, istwert: 1 }] }))).toBeNull();
+    expect(
+      erkenneWatermelon(ziel({ status: "BACKLOG", leadMeasures: [{ zielwert: 10, istwert: 1 }] })),
+    ).toBeNull();
   });
 });
 
@@ -114,7 +132,15 @@ describe("verteileQuadranten / berechneFokusLeck", () => {
     expect(fl?.detail).toContain("Aufgabenzeit");
   });
   it("schweigt unter der Schwelle", () => {
-    expect(berechneFokusLeck([task(false, true), task(true, true), task(true, true), task(true, true), task(true, true)])).toBeNull();
+    expect(
+      berechneFokusLeck([
+        task(false, true),
+        task(true, true),
+        task(true, true),
+        task(true, true),
+        task(true, true),
+      ]),
+    ).toBeNull();
   });
   it("schweigt ohne Aufgaben", () => {
     expect(berechneFokusLeck([])).toBeNull();
@@ -148,7 +174,9 @@ describe("ampelTrend", () => {
     expect(t?.kennzahl).toBe(-20);
   });
   it("schweigt bei Verbesserung", () => {
-    expect(ampelTrend(ziel({ checkIns: [checkin("GELB", 40, 14), checkin("GRUEN", 60, 7)] }))).toBeNull();
+    expect(
+      ampelTrend(ziel({ checkIns: [checkin("GELB", 40, 14), checkin("GRUEN", 60, 7)] })),
+    ).toBeNull();
   });
   it("braucht mindestens zwei Check-ins", () => {
     expect(ampelTrend(ziel({ checkIns: [checkin("ROT", 10, 7)] }))).toBeNull();

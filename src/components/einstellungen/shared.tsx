@@ -51,15 +51,21 @@ export interface LogRow {
 
 // ---- Styles (CREDO-Standard, siehe CLAUDE.md) ----
 export const INPUT = "w-full rounded-lg border border-input bg-background px-4 py-2.5 text-sm";
-export const BTN = "rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-50";
-export const BTN_SEK = "rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium disabled:opacity-50";
+export const BTN =
+  "rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:opacity-50";
+export const BTN_SEK =
+  "rounded-lg border border-input bg-background px-4 py-2 text-sm font-medium disabled:opacity-50";
 
 // ---- Re-Gate bei UNAUTHORIZED nach dem Mount ----
 export const ReGateContext = createContext<() => void>(() => {});
 
 // Zentrale Fehlerbehandlung: bei UNAUTHORIZED zurueck zum Token-Gate,
 // sonst die deutsche Server-Meldung setzen.
-export function behandleFehler(e: unknown, reGate: () => void, setFehler: (s: string | null) => void): void {
+export function behandleFehler(
+  e: unknown,
+  reGate: () => void,
+  setFehler: (s: string | null) => void,
+): void {
   if (e instanceof Error && e.message === "UNAUTHORIZED") {
     reGate();
     return;
@@ -106,7 +112,13 @@ export function Feld({ label, children }: { label: string; children: React.React
   );
 }
 
-export function Banner({ ton, children }: { ton: "warnung" | "fehler" | "erfolg"; children: React.ReactNode }) {
+export function Banner({
+  ton,
+  children,
+}: {
+  ton: "warnung" | "fehler" | "erfolg";
+  children: React.ReactNode;
+}) {
   const stil: Record<string, string> = {
     warnung: "border-credo-gelb bg-credo-gelb/10 text-foreground",
     fehler: "border-credo-rot bg-credo-rot/10 text-foreground",
@@ -140,7 +152,9 @@ export function StatusBadge({ status }: { status: string }) {
     SKIPPED: "bg-status-gelb text-foreground",
   };
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${stil[status] ?? "bg-input"}`}>
+    <span
+      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${stil[status] ?? "bg-input"}`}
+    >
       {STATUS_LABEL[status] ?? status}
     </span>
   );

@@ -105,7 +105,10 @@ export function AufgabenDetailModal({
             <Dialog.Title className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Aufgabe bearbeiten
             </Dialog.Title>
-            <Dialog.Close className="rounded-md p-1 text-muted-foreground hover:bg-muted" aria-label="Schliessen">
+            <Dialog.Close
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+              aria-label="Schliessen"
+            >
               <X size={18} aria-hidden="true" />
             </Dialog.Close>
           </div>
@@ -133,14 +136,19 @@ export function AufgabenDetailModal({
               onClick={() => onPatch(aktiv.id, { urgent: !aktiv.urgent })}
               label="Dringend"
             />
-            <span className={`ml-auto text-xs font-semibold ${quadrantMeta(aktiv.quadrant as Quadrant).akzentText}`}>
-              {quadrantMeta(aktiv.quadrant as Quadrant).titel} · {quadrantMeta(aktiv.quadrant as Quadrant).aktion}
+            <span
+              className={`ml-auto text-xs font-semibold ${quadrantMeta(aktiv.quadrant as Quadrant).akzentText}`}
+            >
+              {quadrantMeta(aktiv.quadrant as Quadrant).titel} ·{" "}
+              {quadrantMeta(aktiv.quadrant as Quadrant).aktion}
             </span>
           </div>
 
           {/* Beschreibung */}
           <label className="mb-4 block">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">Beschreibung</span>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              Beschreibung
+            </span>
             <textarea
               className={`${FELD} min-h-28`}
               value={beschreibung}
@@ -153,7 +161,8 @@ export function AufgabenDetailModal({
           {/* Unteraufgaben */}
           <div className="mb-4">
             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-              Unteraufgaben{aktiv.subtasks.length > 0 && ` (${erledigteUnter}/${aktiv.subtasks.length})`}
+              Unteraufgaben
+              {aktiv.subtasks.length > 0 && ` (${erledigteUnter}/${aktiv.subtasks.length})`}
             </p>
             {aktiv.subtasks.length > 0 && (
               <ul className="mb-2 flex flex-col gap-1">
@@ -165,10 +174,16 @@ export function AufgabenDetailModal({
                       aria-label={s.erledigt ? "Als offen markieren" : "Als erledigt markieren"}
                       aria-pressed={s.erledigt}
                       className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                        s.erledigt ? "border-credo-gruen bg-credo-gruen" : "border-input hover:border-accent"
+                        s.erledigt
+                          ? "border-credo-gruen bg-credo-gruen"
+                          : "border-input hover:border-accent"
                       }`}
                     >
-                      <Check size={11} className={s.erledigt ? "text-white" : "text-transparent"} aria-hidden="true" />
+                      <Check
+                        size={11}
+                        className={s.erledigt ? "text-white" : "text-transparent"}
+                        aria-hidden="true"
+                      />
                     </button>
                     <input
                       defaultValue={s.titel}
@@ -217,7 +232,9 @@ export function AufgabenDetailModal({
           {/* WIG + Frist + Zeit */}
           <div className="mb-4 grid gap-3 sm:grid-cols-2">
             <label className="block sm:col-span-2">
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">WIG (optional)</span>
+              <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                WIG (optional)
+              </span>
               <select
                 className={FELD}
                 value={aktiv.goalId ?? ""}
@@ -243,7 +260,9 @@ export function AufgabenDetailModal({
             </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">Zeit geplant (Min)</span>
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Zeit geplant (Min)
+                </span>
                 <input
                   type="number"
                   min={0}
@@ -254,7 +273,9 @@ export function AufgabenDetailModal({
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs font-medium text-muted-foreground">Zeit ist (Min)</span>
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Zeit ist (Min)
+                </span>
                 <input
                   type="number"
                   min={0}
@@ -361,7 +382,11 @@ function KiBereich({
           <Sparkles size={14} className="text-credo-gruen" aria-hidden="true" />
           KI stimmt zu{prozent != null && ` (${prozent} %)`}
         </span>
-        <button type="button" onClick={onVerwerfen} className="rounded px-1.5 py-0.5 hover:bg-muted">
+        <button
+          type="button"
+          onClick={onVerwerfen}
+          className="rounded px-1.5 py-0.5 hover:bg-muted"
+        >
           OK
         </button>
       </div>

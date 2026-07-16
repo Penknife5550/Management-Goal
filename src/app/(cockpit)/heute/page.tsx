@@ -1,6 +1,7 @@
 import { CalendarCheck, CalendarClock, ListTodo, Settings, Target } from "lucide-react";
 import Link from "next/link";
 import { HeuteClient } from "@/components/heute/heute-client";
+import { LogoutButton } from "@/components/login/logout-button";
 
 // Startseite (AP 2): "Gewinne ich?" auf einen Blick - Tagesurteil, WIG-Ampeln,
 // heutige Q1/Q2-Aufgaben und die wichtigsten Insights (AP 1). Rein lesend.
@@ -53,6 +54,7 @@ export default function HeutePage() {
               <Settings className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Einstellungen</span>
             </Link>
+            <LogoutButton />
           </div>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">

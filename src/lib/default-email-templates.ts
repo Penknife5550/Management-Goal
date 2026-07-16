@@ -63,6 +63,24 @@ export const DEFAULT_EMAIL_TEMPLATES: EmailTemplateDefinition[] = [
       "Hallo {{name}},\n\nZeit fuer deinen Wochen-Check-in. {{anzahl}} WIG(s) ohne Check-in seit ueber einer Woche:\n{{wigListe}}\n\nWochen-Check-in starten: {{link}}\n\nErinnerungen kannst du in deinen Einstellungen abschalten.",
     variables: EVENT_CATALOG.find((e) => e.event === "weekly-checkin-reminder")!.variables,
   },
+  {
+    event: "magic-link",
+    name: "Anmelde-Link (Magic Link)",
+    subject: "Dein Anmelde-Link — CREDO Fuehrungs-Cockpit",
+    bodyHtml: credoLayout({
+      heading: "Hallo {{name}}, hier ist dein Anmelde-Link",
+      intro:
+        "Mit dem Button unten meldest du dich ohne Passwort im Fuehrungs-Cockpit an. " +
+        "Der Link ist {{ttlMinuten}} Minuten gueltig und kann nur einmal genutzt werden.<br /><br />" +
+        "Falls du keinen Anmelde-Link angefordert hast, kannst du diese Nachricht einfach ignorieren.",
+      cta: "Jetzt anmelden",
+    }),
+    bodyText:
+      "Hallo {{name}},\n\nmit diesem Link meldest du dich ohne Passwort im CREDO Fuehrungs-Cockpit an:\n{{link}}\n\n" +
+      "Der Link ist {{ttlMinuten}} Minuten gueltig und kann nur einmal genutzt werden.\n" +
+      "Falls du keinen Anmelde-Link angefordert hast, ignoriere diese Nachricht einfach.",
+    variables: EVENT_CATALOG.find((e) => e.event === "magic-link")!.variables,
+  },
 ];
 
 export function getDefaultTemplate(event: string): EmailTemplateDefinition | undefined {

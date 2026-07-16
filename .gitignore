@@ -29,3 +29,6 @@ npm-debug.log*
 
 # Lokale Claude-Einstellungen
 .claude/
+
+# E2E: vorab angemeldete Session (storageState)
+tests/e2e/.auth/

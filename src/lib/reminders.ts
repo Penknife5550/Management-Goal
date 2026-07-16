@@ -118,7 +118,13 @@ export interface DispatchErgebnis {
 
 export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<DispatchErgebnis> {
   if (!(await istReminderGlobalAktiv())) {
-    return { versendet: 0, uebersprungen: 0, fehlgeschlagen: 0, faellige: 0, grund: "Reminder global deaktiviert" };
+    return {
+      versendet: 0,
+      uebersprungen: 0,
+      fehlgeschlagen: 0,
+      faellige: 0,
+      grund: "Reminder global deaktiviert",
+    };
   }
 
   const fokus = await prisma.goal.findMany({
@@ -132,7 +138,9 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
 
   // Verarbeitet EINEN Owner: reservieren (idempotent), senden, bei FAIL freigeben.
   // Jeder Empfaenger ist unabhaengig -> begrenzt-parallel ausfuehrbar.
-  async function verarbeiteOwner(b: OwnerBuendel): Promise<"versendet" | "uebersprungen" | "fehlgeschlagen"> {
+  async function verarbeiteOwner(
+    b: OwnerBuendel,
+  ): Promise<"versendet" | "uebersprungen" | "fehlgeschlagen"> {
     const reservierung = { recipient: b.email.toLowerCase(), event: REMINDER_EVENT, periodKey };
 
     // Reservierung VOR dem Versand: der Unique-Constraint verhindert Doppelversand
@@ -141,7 +149,8 @@ export async function dispatchWeeklyReminders(jetzt = new Date()): Promise<Dispa
     try {
       await prisma.reminderDispatch.create({ data: reservierung });
     } catch (e) {
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return "uebersprungen";
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
+        return "uebersprungen";
       console.error("[Reminder] Reservierung fehlgeschlagen:", e instanceof Error ? e.message : e);
       return "fehlgeschlagen";
     }

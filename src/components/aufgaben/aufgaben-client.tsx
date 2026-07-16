@@ -195,7 +195,9 @@ export function AufgabenClient() {
             />
           </label>
           <label className="block sm:w-48">
-            <span className="mb-1 block text-xs font-medium text-muted-foreground">WIG (optional)</span>
+            <span className="mb-1 block text-xs font-medium text-muted-foreground">
+              WIG (optional)
+            </span>
             <select
               className={`${INPUT} w-full`}
               value={form.goalId}
@@ -211,8 +213,16 @@ export function AufgabenClient() {
           </label>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <FlagToggle aktiv={form.important} onClick={() => setF("important", !form.important)} label="Wichtig" />
-          <FlagToggle aktiv={form.urgent} onClick={() => setF("urgent", !form.urgent)} label="Dringend" />
+          <FlagToggle
+            aktiv={form.important}
+            onClick={() => setF("important", !form.important)}
+            label="Wichtig"
+          />
+          <FlagToggle
+            aktiv={form.urgent}
+            onClick={() => setF("urgent", !form.urgent)}
+            label="Dringend"
+          />
           <button
             onClick={anlegen}
             disabled={speichert}
@@ -228,8 +238,8 @@ export function AufgabenClient() {
       {/* Matrix */}
       {offen.length === 0 && erledigt.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border bg-muted/40 p-6 text-center text-sm text-muted-foreground">
-          Noch keine Aufgaben. Lege oben deine erste an – und entscheide bewusst,
-          ob sie wirklich wichtig oder nur dringend ist.
+          Noch keine Aufgaben. Lege oben deine erste an – und entscheide bewusst, ob sie wirklich
+          wichtig oder nur dringend ist.
         </p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -249,7 +259,9 @@ export function AufgabenClient() {
       {/* Erledigt */}
       {erledigt.length > 0 && (
         <div>
-          <h2 className="mb-2 text-sm font-medium text-muted-foreground">Erledigt ({erledigt.length})</h2>
+          <h2 className="mb-2 text-sm font-medium text-muted-foreground">
+            Erledigt ({erledigt.length})
+          </h2>
           <ul className="flex flex-col gap-1.5">
             {erledigt.map((t) => (
               <li
@@ -302,7 +314,15 @@ export function AufgabenClient() {
 
 // --- Teilkomponenten -------------------------------------------------------
 
-function FlagToggle({ aktiv, onClick, label }: { aktiv: boolean; onClick: () => void; label: string }) {
+function FlagToggle({
+  aktiv,
+  onClick,
+  label,
+}: {
+  aktiv: boolean;
+  onClick: () => void;
+  label: string;
+}) {
   return (
     <button
       type="button"
@@ -336,11 +356,16 @@ function QuadrantBox({ meta, tasks, kiLaeuft, onOeffnen, onErledigt }: QuadrantB
         <span className={`ml-auto text-xs font-semibold ${meta.akzentText}`}>{meta.aktion}</span>
       </header>
       {tasks.length === 0 ? (
-        <p className="my-auto py-4 text-center text-xs text-muted-foreground">{meta.beschreibung}</p>
+        <p className="my-auto py-4 text-center text-xs text-muted-foreground">
+          {meta.beschreibung}
+        </p>
       ) : (
         <ul className="flex flex-col gap-1.5">
           {tasks.map((t) => (
-            <li key={t.id} className="flex items-start gap-2 rounded-md border border-border bg-background px-2.5 py-2">
+            <li
+              key={t.id}
+              className="flex items-start gap-2 rounded-md border border-border bg-background px-2.5 py-2"
+            >
               <button
                 onClick={() => onErledigt(t)}
                 aria-label={`Erledigt: ${t.titel}`}
@@ -365,7 +390,11 @@ function QuadrantBox({ meta, tasks, kiLaeuft, onOeffnen, onErledigt }: QuadrantB
 function TaskMeta({ task, laeuft }: { task: TaskDTO; laeuft: boolean }) {
   const erledigt = task.subtasks.filter((s) => s.erledigt).length;
   const hatMeta =
-    task.goalTitel || task.subtasks.length > 0 || task.beschreibung || laeuft || task.kiVorschlagOffen;
+    task.goalTitel ||
+    task.subtasks.length > 0 ||
+    task.beschreibung ||
+    laeuft ||
+    task.kiVorschlagOffen;
   if (!hatMeta) return null;
   return (
     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">

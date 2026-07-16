@@ -4,7 +4,13 @@
 // Betreff-CRLF-Bereinigung (Header-Injection) und Empfaenger-Allowlist.
 // ============================================================
 import { afterEach, describe, expect, it } from "vitest";
-import { istErlaubteAdresse, mapSmtpError, renderEventEmail, renderTemplate, type ResolvedTemplate } from "../../src/lib/mailer";
+import {
+  istErlaubteAdresse,
+  mapSmtpError,
+  renderEventEmail,
+  renderTemplate,
+  type ResolvedTemplate,
+} from "../../src/lib/mailer";
 
 const template = (over: Partial<ResolvedTemplate> = {}): ResolvedTemplate => ({
   subject: "Betreff {{name}}",
@@ -25,7 +31,11 @@ describe("renderTemplate", () => {
   });
 
   it("escaped Werte im HTML-Modus (XSS-Barriere)", () => {
-    const out = renderTemplate("<p>{{x}}</p>", { x: '<script>"&\'</script>' }, { escapeHtml: true });
+    const out = renderTemplate(
+      "<p>{{x}}</p>",
+      { x: "<script>\"&'</script>" },
+      { escapeHtml: true },
+    );
     expect(out).toBe("<p>&lt;script&gt;&quot;&amp;&#39;&lt;/script&gt;</p>");
     expect(out).not.toContain("<script>");
   });
@@ -94,8 +104,12 @@ describe("istErlaubteAdresse / Allowlist", () => {
 
 describe("mapSmtpError (kein Host/Auth-Leak)", () => {
   it("kategorisiert bekannte Fehler ohne Roh-Details", () => {
-    expect(mapSmtpError({ code: "EAUTH", message: "535 5.7.8 user/pass mail.intern:587" })).toContain("Anmeldung");
-    expect(mapSmtpError({ code: "ECONNREFUSED", message: "connect 10.0.0.5:587" })).toContain("Verbindung");
+    expect(
+      mapSmtpError({ code: "EAUTH", message: "535 5.7.8 user/pass mail.intern:587" }),
+    ).toContain("Anmeldung");
+    expect(mapSmtpError({ code: "ECONNREFUSED", message: "connect 10.0.0.5:587" })).toContain(
+      "Verbindung",
+    );
     expect(mapSmtpError({ code: "ETIMEDOUT", message: "x" })).toContain("Zeitueberschreitung");
     expect(mapSmtpError(new Error("Read timeout"))).toContain("Zeitueberschreitung");
   });
@@ -115,7 +129,10 @@ describe("renderEventEmail – Empfaenger-Felder (To/Cc/Bcc)", () => {
   it("filtert ungueltige + fremde Domains, dedupliziert, lowercased (CC)", () => {
     process.env.MAIL_ALLOWED_DOMAINS = "credo-gruppe.de";
     const { rendered } = renderEventEmail(
-      template({ recipientTo: "a@credo-gruppe.de", recipientCc: "Chef@Credo-Gruppe.DE, chef@credo-gruppe.de, kaputt, extern@evil.com" }),
+      template({
+        recipientTo: "a@credo-gruppe.de",
+        recipientCc: "Chef@Credo-Gruppe.DE, chef@credo-gruppe.de, kaputt, extern@evil.com",
+      }),
       "weekly-checkin-reminder",
       { email: "a@credo-gruppe.de", name: "X" },
     );

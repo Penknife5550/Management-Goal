@@ -6,7 +6,7 @@
 // ============================================================
 import type { NextRequest } from "next/server";
 import { jsonError, jsonOk, parseBody } from "@/lib/api";
-import { getAktuellerNutzer } from "@/lib/auth";
+import { getAktuellerNutzer, NichtAngemeldetError } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { findeSubtaskFuerNutzer, ladeTaskDTO } from "@/lib/task-service";
 import { subtaskUpdateSchema } from "@/lib/validation/task";
@@ -16,7 +16,7 @@ type Kontext = { params: Promise<{ id: string }> };
 export async function PATCH(request: NextRequest, { params }: Kontext) {
   try {
     const { id } = await params;
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
     const vorhanden = await findeSubtaskFuerNutzer(id, nutzer.id);
     if (!vorhanden) return jsonError("Unteraufgabe nicht gefunden.", 404);
 
@@ -26,6 +26,7 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
     await prisma.subtask.update({ where: { id }, data: p.data });
     return jsonOk(await ladeTaskDTO(vorhanden.taskId));
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("PATCH /api/subtasks/[id] fehlgeschlagen:", fehler);
     return jsonError("Unteraufgabe konnte nicht aktualisiert werden.", 500);
   }
@@ -34,13 +35,14 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
 export async function DELETE(_request: NextRequest, { params }: Kontext) {
   try {
     const { id } = await params;
-    const nutzer = getAktuellerNutzer();
+    const nutzer = await getAktuellerNutzer();
     const vorhanden = await findeSubtaskFuerNutzer(id, nutzer.id);
     if (!vorhanden) return jsonError("Unteraufgabe nicht gefunden.", 404);
 
     await prisma.subtask.delete({ where: { id } });
     return jsonOk(await ladeTaskDTO(vorhanden.taskId));
   } catch (fehler) {
+    if (fehler instanceof NichtAngemeldetError) return jsonError("Nicht angemeldet.", 401);
     console.error("DELETE /api/subtasks/[id] fehlgeschlagen:", fehler);
     return jsonError("Unteraufgabe konnte nicht geloescht werden.", 500);
   }

@@ -15,7 +15,9 @@ const optionaleEmail = (feld: string) =>
     .trim()
     .max(255)
     .default("")
-    .refine((v) => v === "" || EMAIL_PATTERN.test(v), { message: `${feld} ist keine gueltige E-Mail-Adresse` });
+    .refine((v) => v === "" || EMAIL_PATTERN.test(v), {
+      message: `${feld} ist keine gueltige E-Mail-Adresse`,
+    });
 
 // Beim Speichern mit isActive=true sind Pflichtfelder erforderlich;
 // die feinere Pruefung passiert in der Route (haengt von isActive ab).
