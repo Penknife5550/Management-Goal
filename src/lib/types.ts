@@ -13,6 +13,14 @@ export interface LeadMeasureDTO {
   istwert: number;
 }
 
+// Feedback-Analyse (Drucker, AP4): erwartet vor dem Start, tatsaechlich beim
+// Abschluss. reviewAm = Zeitpunkt der Abschluss-Reflexion.
+export interface LearningLogDTO {
+  erwartet: string;
+  tatsaechlich: string | null;
+  reviewAm: string | null;
+}
+
 export interface ZielDTO {
   id: string;
   titel: string;
@@ -24,7 +32,9 @@ export interface ZielDTO {
   abhaengig: boolean;
   lastCheckinAt: string | null;
   leadMeasures: LeadMeasureDTO[];
+  learningLog: LearningLogDTO | null;
   createdAt: string;
+  updatedAt: string; // fuer die Zombie-Erkennung (veraltetes Backlog)
 }
 
 export interface SubtaskDTO {

@@ -7,7 +7,9 @@ import { senden } from "@/lib/client";
 import { WIG_LIMIT } from "@/lib/constants";
 import type { Ampel } from "@/lib/goals";
 import type { ZielDTO } from "@/lib/types";
+import { LernRueckblick } from "./lern-rueckblick";
 import { WigScoreboard } from "./wig-scoreboard";
+import { ZielAbschlussModal } from "./ziel-abschluss-modal";
 import { ZielAufFokusModal } from "./ziel-auf-fokus-modal";
 import { ZielBacklogListe } from "./ziel-backlog-liste";
 import { ZielQuickAdd } from "./ziel-quick-add";
@@ -20,6 +22,10 @@ export function ZieleClient() {
   const [laedt, setLaedt] = useState(true);
   const [fehler, setFehler] = useState<string | null>(null);
   const [modalZiel, setModalZiel] = useState<ZielDTO | null>(null);
+  // Nur die id halten und das Ziel LIVE aus dem State ableiten - so zeigt das
+  // Abschluss-Modal das gerade erst geladene learningLog (erwartet), auch wenn
+  // die FOKUS-Antwort erst nach dem Oeffnen eintrifft (kein Stale-Snapshot).
+  const [abschlussZielId, setAbschlussZielId] = useState<string | null>(null);
   const [feier, setFeier] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,6 +44,12 @@ export function ZieleClient() {
 
   const fokusZiele = ziele.filter((z) => z.status === "FOKUS");
   const backlogZiele = ziele.filter((z) => z.status === "BACKLOG");
+  // ALLE erreichten Ziele (auch ohne Feedback-Notiz) - sonst verschwaende ein
+  // ohne Notiz abgeschlossenes Ziel aus jeder Liste (Sichtbarkeits-Sackgasse).
+  const rueckblickZiele = ziele.filter((z) => z.status === "ERREICHT");
+  const abschlussZiel = abschlussZielId
+    ? (ziele.find((z) => z.id === abschlussZielId) ?? null)
+    : null;
   const limitErreicht = fokusZiele.length >= WIG_LIMIT;
 
   // Lade den Serverstand neu (sauberer Rollback statt Stale-Snapshot).
@@ -74,7 +86,9 @@ export function ZieleClient() {
       abhaengig: false,
       lastCheckinAt: null,
       leadMeasures: [],
+      learningLog: null,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     setFehler(null);
     setZiele((prev) => [temp, ...prev]);
@@ -91,32 +105,65 @@ export function ZieleClient() {
     const ziel = modalZiel;
     setModalZiel(null);
     if (!ziel) return;
-    await mutiere(
-      (prev) =>
-        prev.map((z) => (z.id === ziel.id ? { ...z, status: "FOKUS", outcome, dueDate } : z)),
-      () =>
-        senden(`/api/goals/${ziel.id}`, "PATCH", {
-          status: "FOKUS",
-          outcome,
-          dueDate,
-          ...(erwartet ? { erwartet } : {}),
-        }),
-    );
-  }
-
-  async function onErreicht(id: string) {
-    const titel = ziele.find((z) => z.id === id)?.titel ?? "Ziel";
     setFehler(null);
     setZiele((prev) =>
-      prev.map((z) => (z.id === id ? { ...z, status: "ERREICHT", fortschritt: 100 } : z)),
+      prev.map((z) => (z.id === ziel.id ? { ...z, status: "FOKUS", outcome, dueDate } : z)),
     );
     try {
-      await senden(`/api/goals/${id}`, "PATCH", { status: "ERREICHT", fortschritt: 100 });
-      setFeier(`Geschafft: „${titel}“ ist erreicht.`);
+      // Serverstand uebernehmen -> enthaelt das gerade gespeicherte learningLog
+      // (erwartet), das der Abschluss spaeter gegenueberstellt.
+      const aktualisiert = await senden<ZielDTO>(`/api/goals/${ziel.id}`, "PATCH", {
+        status: "FOKUS",
+        outcome,
+        dueDate,
+        ...(erwartet ? { erwartet } : {}),
+      });
+      setZiele((prev) => prev.map((z) => (z.id === ziel.id ? aktualisiert : z)));
     } catch (e) {
       setFehler((e as Error).message);
       await ladeNeu();
     }
+  }
+
+  // Abschluss oeffnet das Feedback-Modal (erwartet vs. tatsaechlich), statt
+  // direkt abzuschliessen - Druckers Feedback-Analyse.
+  function onErreicht(id: string) {
+    setAbschlussZielId(id);
+  }
+
+  async function onErreichtBestaetigen(tatsaechlich: string) {
+    const ziel = abschlussZiel;
+    setAbschlussZielId(null);
+    if (!ziel) return;
+    setFehler(null);
+    setZiele((prev) =>
+      prev.map((z) => (z.id === ziel.id ? { ...z, status: "ERREICHT", fortschritt: 100 } : z)),
+    );
+    try {
+      const aktualisiert = await senden<ZielDTO>(`/api/goals/${ziel.id}`, "PATCH", {
+        status: "ERREICHT",
+        fortschritt: 100,
+        ...(tatsaechlich ? { tatsaechlich } : {}),
+      });
+      // Serverstand uebernehmen (enthaelt das frische learningLog fuer den Rueckblick).
+      setZiele((prev) => prev.map((z) => (z.id === ziel.id ? aktualisiert : z)));
+      setFeier(`Geschafft: „${ziel.titel}“ ist erreicht.`);
+    } catch (e) {
+      setFehler((e as Error).message);
+      await ladeNeu();
+    }
+  }
+
+  // Zombie-Killer: bewusst behalten = Veraltet-Uhr zuruecksetzen. Ein PATCH mit
+  // dem unveraenderten Titel genuegt, weil Prisma @updatedAt bei JEDEM update()
+  // neu setzt - dieser Nebeneffekt IST hier die Absicht.
+  function onBehalten(id: string) {
+    const titel = ziele.find((z) => z.id === id)?.titel;
+    if (!titel) return;
+    void mutiere(
+      (prev) => prev.map((z) => (z.id === id ? { ...z, updatedAt: new Date().toISOString() } : z)),
+      () => senden(`/api/goals/${id}`, "PATCH", { titel }),
+    );
   }
 
   function onZurueck(id: string) {
@@ -285,7 +332,9 @@ export function ZieleClient() {
             backlogZiele={backlogZiele}
             onFokusOeffnen={setModalZiel}
             onArchiv={onArchiv}
+            onBehalten={onBehalten}
           />
+          <LernRueckblick ziele={rueckblickZiele} />
         </>
       )}
 
@@ -294,6 +343,12 @@ export function ZieleClient() {
         limitErreicht={limitErreicht}
         onAbbrechen={() => setModalZiel(null)}
         onBestaetigen={onFokusBestaetigen}
+      />
+
+      <ZielAbschlussModal
+        ziel={abschlussZiel}
+        onAbbrechen={() => setAbschlussZielId(null)}
+        onBestaetigen={onErreichtBestaetigen}
       />
     </div>
   );

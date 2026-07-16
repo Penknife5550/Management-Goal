@@ -31,8 +31,10 @@ export const goalUpdateSchema = z
       .optional(),
     dueDate: z.coerce.date().nullable().optional(),
     abhaengig: z.boolean().optional(),
-    // Wird beim Heben auf FOKUS optional ins LearningLog uebernommen (Drucker).
+    // Feedback-Analyse (Drucker): erwartet beim Heben auf FOKUS, tatsaechlich
+    // beim Abschluss (ERREICHT) - beide optional ins LearningLog.
     erwartet: z.string().trim().max(500).optional(),
+    tatsaechlich: z.string().trim().max(500).optional(),
   })
   .strict();
 

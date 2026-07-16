@@ -4,12 +4,17 @@
 // Haelt die API-Routen schlank und entkoppelt das Wire-Format (DTO)
 // vom Prisma-Persistenzmodell (kein Leak interner Felder).
 // ============================================================
-import type { Goal, LeadMeasure } from "@prisma/client";
+import type { Goal, LeadMeasure, LearningLog } from "@prisma/client";
 import { prisma } from "./db";
 import type { Ampel, GoalStatus } from "./goals";
 import type { LeadMeasureDTO, ZielDTO } from "./types";
 
-export type GoalMitLeads = Goal & { leadMeasures: LeadMeasure[] };
+// learningLog optional: nur manche Includes laden es (findeZielFuerNutzer, PATCH);
+// wo es fehlt, mappt toZielDTO auf null.
+export type GoalMitLeads = Goal & {
+  leadMeasures: LeadMeasure[];
+  learningLog?: LearningLog | null;
+};
 
 // Laedt ein Ziel nur, wenn es dem Nutzer gehoert (Scope-Durchsetzung).
 export function findeZielFuerNutzer(id: string, ownerId: string) {
@@ -49,6 +54,14 @@ export function toZielDTO(goal: GoalMitLeads): ZielDTO {
     abhaengig: goal.abhaengig,
     lastCheckinAt: goal.lastCheckinAt ? goal.lastCheckinAt.toISOString() : null,
     leadMeasures: goal.leadMeasures.map(toLeadMeasureDTO),
+    learningLog: goal.learningLog
+      ? {
+          erwartet: goal.learningLog.erwartet,
+          tatsaechlich: goal.learningLog.tatsaechlich,
+          reviewAm: goal.learningLog.reviewAm ? goal.learningLog.reviewAm.toISOString() : null,
+        }
+      : null,
     createdAt: goal.createdAt.toISOString(),
+    updatedAt: goal.updatedAt.toISOString(),
   };
 }

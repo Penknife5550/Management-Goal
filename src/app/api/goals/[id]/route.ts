@@ -49,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
     const vorhanden = await findeZielFuerNutzer(id, nutzer.id);
     if (!vorhanden) return jsonError("Ziel nicht gefunden.", 404);
 
-    const { erwartet, ...felder } = parsed.data;
+    const { erwartet, tatsaechlich, ...felder } = parsed.data;
     const zielStatus = felder.status ?? vorhanden.status;
     const neuesOutcome = felder.outcome !== undefined ? felder.outcome : vorhanden.outcome;
     const hebtAufFokus = zielStatus === "FOKUS" && vorhanden.status !== "FOKUS";
@@ -72,11 +72,7 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
         );
         if (!regel.ok) return { ok: false, fehler: regel };
 
-        const goal = await tx.goal.update({
-          where: { id },
-          data: felder,
-          include: { leadMeasures: { orderBy: { beschreibung: "asc" } }, learningLog: true },
-        });
+        await tx.goal.update({ where: { id }, data: felder });
         if (erwartet && zielStatus === "FOKUS") {
           await tx.learningLog.upsert({
             where: { goalId: id },
@@ -84,7 +80,24 @@ export async function PATCH(request: NextRequest, { params }: Kontext) {
             create: { goalId: id, erwartet },
           });
         }
-        return { ok: true, goal };
+        // Feedback-Analyse (Drucker): beim Abschluss das tatsaechliche Ergebnis
+        // festhalten. Existiert kein Lern-Log (kein erwartet erfasst), wird eins
+        // mit leerem erwartet angelegt - das Tatsaechliche zaehlt trotzdem.
+        if (tatsaechlich && zielStatus === "ERREICHT") {
+          const reviewAm = new Date();
+          await tx.learningLog.upsert({
+            where: { goalId: id },
+            update: { tatsaechlich, reviewAm },
+            create: { goalId: id, erwartet: "", tatsaechlich, reviewAm },
+          });
+        }
+        // Das Ziel nach dem Log-Upsert erneut mit frischem learningLog laden,
+        // damit die Antwort den gerade gespeicherten Wert enthaelt.
+        const goalMitLog = await tx.goal.findUniqueOrThrow({
+          where: { id },
+          include: { leadMeasures: { orderBy: { beschreibung: "asc" } }, learningLog: true },
+        });
+        return { ok: true, goal: goalMitLog };
       },
       { isolationLevel: "Serializable" },
     );

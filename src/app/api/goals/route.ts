@@ -15,7 +15,7 @@ export async function GET() {
     const nutzer = await getAktuellerNutzer();
     const goals = await prisma.goal.findMany({
       where: { ownerId: nutzer.id, status: { not: "ARCHIVIERT" } },
-      include: { leadMeasures: { orderBy: { beschreibung: "asc" } } },
+      include: { leadMeasures: { orderBy: { beschreibung: "asc" } }, learningLog: true },
       orderBy: { createdAt: "desc" },
     });
     return jsonOk(goals.map(toZielDTO));
