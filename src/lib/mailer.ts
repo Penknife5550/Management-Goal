@@ -436,3 +436,53 @@ export async function sendEventEmail(
     return { status: "FAILED", detail };
   }
 }
+
+// =============================================
+// Versand von VORGERENDERTEM Inhalt (z.B. Montags-Briefing, AP3): Betreff/HTML
+// werden bereits fertig (und dynamisch escaped) uebergeben - nicht ueber das
+// Variablen-Template. Reuse von Allowlist + DryRun (sendEmailDetailed) +
+// Protokoll (writeEmailLog). Wirft niemals.
+// =============================================
+export async function sendRenderedEmail(
+  event: string,
+  mail: { to: string; subject: string; html: string; text?: string },
+): Promise<EventEmailResult> {
+  try {
+    if (!EMAIL_PATTERN.test(mail.to) || !istErlaubteAdresse(mail.to)) {
+      const detail = `Empfaenger "${mail.to}" ist nicht zugelassen`;
+      await writeEmailLog({ event, status: "SKIPPED", recipient: mail.to, detail });
+      return { status: "SKIPPED", detail };
+    }
+    // Betreff CRLF-bereinigen (Header-Injection-Schutz, wie beim Template-Pfad).
+    const subject = mail.subject.replace(/[\r\n]+/g, " ");
+    const result = await sendEmailDetailed({
+      to: mail.to,
+      subject,
+      html: mail.html,
+      text: mail.text,
+    });
+    if (result.ok) {
+      await writeEmailLog({
+        event,
+        status: "SENT",
+        recipient: mail.to,
+        subject,
+        messageId: result.messageId,
+      });
+      return { status: "SENT" };
+    }
+    await writeEmailLog({
+      event,
+      status: "FAILED",
+      recipient: mail.to,
+      subject,
+      detail: result.error,
+    });
+    return { status: "FAILED", detail: result.error };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error(`[Mailer] Unerwarteter Fehler beim Briefing-Versand fuer "${event}":`, detail);
+    await writeEmailLog({ event, status: "FAILED", detail });
+    return { status: "FAILED", detail };
+  }
+}

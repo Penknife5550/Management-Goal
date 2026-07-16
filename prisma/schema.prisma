@@ -68,6 +68,10 @@ model User {
   // Consent fuer Reminder-Mails (Phase 2: nutzergesteuert, kein Spam).
   // Pro-User-Schalter; eine eigene Profil-UI folgt mit der Nutzerverwaltung (Phase 4).
   emailRemindersEnabled Boolean @default(true)
+  // Eigener Schalter fuers woechentliche Montags-Briefing (AP3) - bewusst
+  // getrennt vom Reminder: "erinnere mich" und "fasse mir die Woche zusammen"
+  // sind verschiedene Beduerfnisse.
+  montagsBriefingEnabled Boolean @default(true)
 
   // ---- Auth (AP6) ----
   // bcrypt-Hash; null = Nutzer meldet sich ausschliesslich per Magic-Link an.
