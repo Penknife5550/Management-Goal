@@ -8,11 +8,11 @@ export default function EinstellungenPage() {
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6">
         <Link
-          href="/ziele"
+          href="/heute"
           className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Zurueck zum Cockpit
+          Zurueck zur Startseite
         </Link>
         <h1 className="text-xl font-medium">Einstellungen</h1>
         <p className="mt-1 text-sm text-muted-foreground">

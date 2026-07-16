@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Einstieg fuehrt direkt ins Ziel-Cockpit.
+// Einstieg fuehrt auf die Startseite "Heute" (Gewinne ich?).
 export default function Home() {
-  redirect("/ziele");
+  redirect("/heute");
 }

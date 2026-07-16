@@ -1,32 +1,25 @@
-import { CalendarCheck, CalendarClock, Home, ListTodo, Settings } from "lucide-react";
+import { CalendarCheck, CalendarClock, ListTodo, Settings, Target } from "lucide-react";
 import Link from "next/link";
-import { ZieleClient } from "@/components/ziele/ziele-client";
+import { HeuteClient } from "@/components/heute/heute-client";
 
-// Strategische Ebene: Ziel-Backlog + aktive WIGs (Scoreboard).
-export default function ZielePage() {
+// Startseite (AP 2): "Gewinne ich?" auf einen Blick - Tagesurteil, WIG-Ampeln,
+// heutige Q1/Q2-Aufgaben und die wichtigsten Insights (AP 1). Rein lesend.
+export default function HeutePage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6">
         <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-medium">Strategische Ziele</h1>
+          <h1 className="text-xl font-medium">Heute</h1>
           {/* Auf schmalen Screens nur Icons (flex-wrap + hidden sm:inline),
               aria-label haelt die Links fuer Screenreader benannt. */}
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Link
-              href="/heute"
-              aria-label="Heute"
+              href="/ziele"
+              aria-label="Ziele"
               className="inline-flex items-center gap-1 py-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
-              <Home className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Heute</span>
-            </Link>
-            <Link
-              href="/check-in"
-              aria-label="Wochen-Check-in"
-              className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground"
-            >
-              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Wochen-Check-in</span>
+              <Target className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Ziele</span>
             </Link>
             <Link
               href="/aufgaben"
@@ -35,6 +28,14 @@ export default function ZielePage() {
             >
               <ListTodo className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Aufgaben</span>
+            </Link>
+            <Link
+              href="/check-in"
+              aria-label="Check-in"
+              className="inline-flex items-center gap-1 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Check-in</span>
             </Link>
             <Link
               href="/fokuszeit"
@@ -55,7 +56,7 @@ export default function ZielePage() {
           </div>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sammle Ideen im Backlog – arbeite an 1–3 wirklich wichtigen Zielen (WIGs).
+          Gewinne ich? Dein Tag auf einen Blick – Fokus-Ziele, wichtige Aufgaben, was auffällt.
         </p>
         <div className="credo-linie mt-4" aria-hidden="true">
           <span className="!flex-[4]" style={{ background: "var(--color-muted-foreground)" }} />
@@ -66,7 +67,7 @@ export default function ZielePage() {
         </div>
       </header>
 
-      <ZieleClient />
+      <HeuteClient />
     </main>
   );
 }

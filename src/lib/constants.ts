@@ -38,3 +38,7 @@ export const WATERMELON_LEAD_MAX = 0.4;
 export const FOKUSLECK_Q3_WARN = 0.3;
 // Zombie: Backlog-Ziel so viele Tage unveraendert -> Streich-Kandidat (Drucker).
 export const ZOMBIE_TAGE = 90;
+
+// Startseite /heute (AP 2): so viele der wichtigsten Insights werden angezeigt
+// (nach Schwere sortiert). Der Rest bleibt im /api/insights-Vollbild.
+export const TOP_INSIGHTS_ANZAHL = 4;
