@@ -64,10 +64,13 @@ export async function middleware(request: NextRequest) {
     // Ungueltiges/abgelaufenes Cookie gleich aufraeumen.
     if (token) response.cookies.delete(SESSION_COOKIE);
     return response;
-  } else if (pathname.startsWith("/einstellungen") && session.rolle !== "ADMIN") {
-    // Defense-in-Depth: die Einstellungs-SEITE nur fuer Admins (die API erzwingt
-    // die Rolle ohnehin DB-frisch via withAdmin). Rolle aus dem Token genuegt
-    // hier fuers Seiten-Gating.
+  } else if (
+    (pathname.startsWith("/einstellungen") || pathname.startsWith("/ueberblick")) &&
+    session.rolle !== "ADMIN"
+  ) {
+    // Defense-in-Depth: die ADMIN-Seiten (Einstellungen, Fuehrungs-Ueberblick)
+    // nur fuer Admins (die APIs erzwingen die Rolle ohnehin DB-frisch via
+    // withAdmin). Rolle aus dem Token genuegt hier fuers Seiten-Gating.
     return NextResponse.redirect(new URL("/heute", request.url));
   }
 

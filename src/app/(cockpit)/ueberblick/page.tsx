@@ -1,33 +1,24 @@
-import { BarChart3, CalendarCheck, CalendarClock, ListTodo, Settings, Target } from "lucide-react";
+import { CalendarClock, Home, ListTodo, Settings, Target } from "lucide-react";
 import Link from "next/link";
-import { HeuteClient } from "@/components/heute/heute-client";
-import { LogoutButton } from "@/components/login/logout-button";
-import { getSession } from "@/lib/auth";
+import { UeberblickClient } from "@/components/ueberblick/ueberblick-client";
 
-// Startseite (AP 2): "Gewinne ich?" auf einen Blick - Tagesurteil, WIG-Ampeln,
-// heutige Q1/Q2-Aufgaben und die wichtigsten Insights (AP 1). Rein lesend.
-export default async function HeutePage() {
-  // Der Fuehrungs-Ueberblick (AP5) ist nur fuer Admins - Link entsprechend zeigen.
-  const session = await getSession();
-  const istAdmin = session?.rolle === "ADMIN";
+// GF-Aggregat (AP5): read-only Fuehrungs-Ueberblick ueber die Rechtseinheit.
+// Nur fuer ADMIN (Middleware-Gate + withAdmin in der API).
+export default function UeberblickPage() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-6">
         <div className="flex items-start justify-between gap-4">
-          <h1 className="text-xl font-medium">Heute</h1>
-          {/* Auf schmalen Screens nur Icons (flex-wrap + hidden sm:inline),
-              aria-label haelt die Links fuer Screenreader benannt. */}
+          <h1 className="text-xl font-medium">Führungs-Überblick</h1>
           <div className="flex flex-wrap items-center justify-end gap-3">
-            {istAdmin && (
-              <Link
-                href="/ueberblick"
-                aria-label="Führungs-Überblick"
-                className="inline-flex items-center gap-1 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-              >
-                <BarChart3 className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Überblick</span>
-              </Link>
-            )}
+            <Link
+              href="/heute"
+              aria-label="Heute"
+              className="inline-flex items-center gap-1 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <Home className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Heute</span>
+            </Link>
             <Link
               href="/ziele"
               aria-label="Ziele"
@@ -45,14 +36,6 @@ export default async function HeutePage() {
               <span className="hidden sm:inline">Aufgaben</span>
             </Link>
             <Link
-              href="/check-in"
-              aria-label="Check-in"
-              className="inline-flex items-center gap-1 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Check-in</span>
-            </Link>
-            <Link
               href="/fokuszeit"
               aria-label="Fokuszeit"
               className="inline-flex items-center gap-1 py-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -68,11 +51,11 @@ export default async function HeutePage() {
               <Settings className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Einstellungen</span>
             </Link>
-            <LogoutButton />
           </div>
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gewinne ich? Dein Tag auf einen Blick – Fokus-Ziele, wichtige Aufgaben, was auffällt.
+          Wie steht die Rechtseinheit? Pro Person das Wochenurteil und die Fokus-Ziele – rein
+          lesend.
         </p>
         <div className="credo-linie mt-4" aria-hidden="true">
           <span className="!flex-[4]" style={{ background: "var(--color-muted-foreground)" }} />
@@ -83,7 +66,7 @@ export default async function HeutePage() {
         </div>
       </header>
 
-      <HeuteClient />
+      <UeberblickClient />
     </main>
   );
 }
