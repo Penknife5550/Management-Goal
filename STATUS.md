@@ -560,3 +560,60 @@ primär über tsc/Tests/API-Smoke, Klick-Test wenn Zeit. Smoke-Skripte liegen im
 **Nächster Zug (offen gelassen)**: entweder **AP 2** (`/heute`-Seite, macht AP-1-Insights sichtbar
 — empfohlen, kein Auth nötig) oder **AP 3** (KI-Briefing über n8n). Details 15.2.
 **Git**: `5e826ab` + `37f333f` lokal committet, **noch nicht gepusht** (auf Wunsch pushbar).
+
+## 16. Session 2026-07-14/15: AP2 `/heute` + Superhero-Review + CSP-Prod-Fix
+
+> AP 2 ist GEBAUT und vollständig verifiziert (Unit + E2E + Browser im **Production-Modus**).
+> Zusätzlich: 7-Agenten-Code-Review (alle 4 MAJORs gefixt) und ein **vorbestehender
+> CRITICAL-Bug** gefunden & gefixt, der die ganze App im Prod-Modus lahmlegte.
+
+### 16.1 AP 2 — Startseite `/heute` („Gewinne ich?") — GEBAUT
+- `src/lib/heute.ts`: `bewerteTag()` — pures, deterministisches Tagesurteil
+  (leer/rot/gelb/grün aus WIG-Ampeln + Insight-Schwere), 10 Unit-Tests (Suite: 144/144).
+- `src/components/heute/heute-client.tsx`: lädt `/api/goals` + `/api/tasks` + `/api/insights`
+  parallel (bewusst kein Aggregat-Endpoint, Kommentar im Code); Sektionen: Tagesurteil,
+  Fokus-Ziele (Ampel+Fortschritt), offene Q1/Q2 („Heute wichtig"), Top-Insights
+  (`TOP_INSIGHTS_ANZAHL`=4 in constants.ts). Read-only.
+- `src/app/(cockpit)/heute/page.tsx`: Server-Shell, responsive Nav (flex-wrap, Labels
+  `hidden sm:inline` + aria-label — Muster auch auf `/ziele` übernommen).
+- Root-Redirect `/` → `/heute` (vorher `/ziele`). Rück-Links der 4 Unterseiten →
+  `/heute` („Zurueck zur Startseite").
+- `tests/e2e/heute.spec.ts`: Smoke (Redirect + 4 Regionen) + Nav-Rückweg; läuft laut
+  playwright.config gegen den **Prod-Server** (`npm run start`).
+
+### 16.2 CRITICAL gefixt: nonce-CSP × statisches Prerender = App im Prod-Modus tot
+- Symptom: `next build` + `next start` → jede Seite ewiges Skeleton, kein Script läuft.
+  Ursache: middleware.ts stempelt den Nonce nur bei Request-Zeit-SSR; statisch
+  prerenderte Seiten (Build-Zeit) haben KEINEN Nonce im HTML → CSP blockiert alles.
+  Dev-Modus kaschiert das (rendert immer dynamisch) — darum nie aufgefallen.
+- Fix: `export const dynamic = "force-dynamic"` im Root-Layout (Kommentar erklärt warum).
+  Beweis: Build-Route-Tabelle alle Seiten `ƒ`, Header-Nonce == HTML-Nonce, Browser-
+  Hydration im Prod-Modus, E2E 4/4. **Konsequenz: Verifikation künftig IMMER auch
+  `next start` + Browser, nicht nur Dev.**
+
+### 16.3 Superhero-Review (7 Agenten + adversariale Verifikation) — Ergebnis
+- 0 CRITICAL im AP2-Diff, 4 MAJOR (alle 3-fach verifiziert, alle GEFIXT): Nav-Sackgasse,
+  Mobile-Header-Überlauf, fehlender E2E-Smoke, Prettier. Security/Performance/Error-
+  Handling: GoLive-fähig.
+- Backlog aus dem Review (MINOR, bewusst NICHT gefixt): `Promise.allSettled` +
+  Sektion-Degradation statt Alles-oder-Nichts; „Erneut versuchen"-Button im Fehlerfall;
+  `--color-status-gelb-text` (Kontrast, analog Grün); Q1/Q2-Listen kappen+sortieren;
+  Q1/Q2-Filterregeln nach heute.ts ziehen + testen; `cockpit-header.tsx` extrahieren
+  (Nav 6× dupliziert); Tasks-API Status-Filter; mittelfristig Aggregat-Endpoint/RSC;
+  `senden()` Timeout; app-weite `error.tsx`.
+
+### 16.4 Umgebungs-Diagnose (endlich gelöst — Details im Session-Memory)
+- Die „sehr langsame Umgebung" (§15: Dev-Ready ~12 Min): (1) Tool-Sandbox erwürgt
+  Server-Prozesse — unsandboxed bootet `next start` in ~0,5 s, Build <2 Min statt 17,9.
+  (2) `next dev` hängt zusätzlich am Datei-Watcher, Verdacht Synology Drive
+  (NAS 192.168.2.50 down, `SYN_SENT` auf :6690) → NAS prüfen/Sync pausieren.
+- `.claude/launch.json` um `cockpit-prod` ergänzt; `.env.local` (gitignored) hält
+  DATABASE_URL für lokale Server-Starts.
+
+### 16.5 GoLive-Blocker (WICHTIG — vor echtem Betrieb zwingend)
+1. **Es gibt KEINE Anmeldung**: `src/lib/auth.ts` ist ein Stub, JEDER Aufrufer ist der
+   hartcodierte Test-Nutzer. Kein Login, kein Passwort, keine Session. → **AP 6**
+   (JWT + Magic-Link wie HR-Portal + RBAC) ist DER kritische Pfad vor jeder Exposition.
+2. Audit-Log fehlt (Personalrat/DSB-Zusage), Backup-/DSGVO-Löschkonzept offen (§15.1).
+3. Adoptions-Telemetrie fehlt (Plan-Risiko #1).
+- Danach: AP 3 (KI-Briefing), AP 4 (Drucker-Tiefe), AP 5 (GF-Aggregat, braucht AP 6).
