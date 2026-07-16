@@ -754,3 +754,39 @@ dort waere eine sinnvolle Folge-Haertung.
 n8n-Workflow `ki-briefing` importieren + aktivieren, `N8N_BRIEFING_WEBHOOK_URL` setzen,
 `AI_MODEL` auf ein LOKALES Modell (nie `-cloud`/`:cloud`). Ollama muss erreichbar sein.
 Ohne all das laeuft das deterministische Briefing normal weiter.
+
+## 20. Session 2026-07-16 (Teil 3): AP4 Drucker-Tiefe + AP5 GF-Aggregat (GEBAUT)
+
+> Zwei Feature-Pakete. AP4 committet (`7686c6b`); AP5 danach. Verifiziert: tsc ·
+> **186/186 Unit-Tests** · **9/9 E2E** · Browser (beide Features) · je ein
+> Fokus-Review.
+
+### 20.1 AP 4 — Drucker-Tiefe (Feedback-Analyse + Zombie-Killer)
+KEINE Migration (LearningLog existierte, `erwartet` wurde schon beim FOKUS-Heben gespeichert).
+- **Feedback-Analyse**: `tatsaechlich`/`reviewAm` beim Abschluss (PATCH-Upsert bei ERREICHT,
+  gleiche Serializable-Transaktion). `learningLog`+`updatedAt` ins `ZielDTO`. Abschluss-Modal
+  (`ziel-abschluss-modal`) zeigt „Damals erwartet", fragt „Was ist tatsaechlich eingetreten?".
+  `onErreicht` oeffnet das Modal (statt direkt). **Lern-Rueckblick** (`lern-rueckblick`): erwartet-
+  vs-tatsaechlich aller ERREICHT-Ziele. onFokus/onErreicht uebernehmen die Server-Antwort;
+  Abschluss-Modal live per id (kein Stale-Snapshot — beides waren via E2E gefundene Bugs).
+- **Zombie-Killer**: veraltete Backlog-Ziele (>ZOMBIE_TAGE unbewegt) -> „veraltet"-Badge +
+  Aktionen Archivieren / Behalten (Uhr per Titel-Resave / @updatedAt zuruecksetzen).
+- Review: 0 CRITICAL/0 MAJOR; MINOR gefixt (ERREICHT ohne Notiz war unsichtbar -> Rueckblick
+  zeigt jetzt ALLE ERREICHT).
+
+### 20.2 AP 5 — GF-Aggregat (read-only Fuehrungs-Ueberblick, der Namensgeber)
+- `src/lib/ueberblick.ts` (rein, getestet): Typen + `fasseZusammen` (Roll-up).
+- `src/lib/ueberblick-data.ts`: `ladeUeberblick(rechtseinheitId)` — der ERSTE Multi-User-Zugriff
+  (bisher alles strikt ownerId). Pro Nutzer: `ladeInsightsFuerNutzer` + FOKUS-WIGs + `bewerteTag`.
+- `GET /api/ueberblick`: **withAdmin** (403 sonst); Scope = `getAktuellerNutzer().rechtseinheitId`
+  (nicht clientseitig, kein Query-Param).
+- `/ueberblick`-Seite: Roll-up (Personen/Fokus-Ziele/Kritisch/Auf Kurs) + pro-Person-Karten
+  (Wochenurteil + WIGs mit Fortschritt/Ampel). Middleware-Gate `/ueberblick` nur ADMIN
+  (wie /einstellungen). ADMIN-only Ueberblick-Link im /heute-Header (getSession serverseitig).
+- **Seed**: 2 Demo-Fuehrungskraefte (`demo-fk-anna/ben`, NUTZER) + 3 WIGs, damit das Aggregat
+  befuellt ist. **In Produktion entfernen** (kein Nutzerverwaltungs-UI vorhanden).
+- Gate LIVE geprueft: NUTZER -> API 403, Seite 307->/heute, eigene /api/goals weiter 200.
+
+### 20.3 Offene GoLive-Punkte (unveraendert)
+Backup-/DSGVO-Loeschkonzept, Adoptions-Telemetrie. Follow-up (Task-Chip): Lib-PII-Guard fuer
+den KI-Eisenhower-Trigger. Nutzerverwaltungs-UI fehlt (AP5 zeigt nur, was geseedet/vorhanden ist).
