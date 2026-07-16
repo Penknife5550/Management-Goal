@@ -1,0 +1,83 @@
+{
+  "name": "KI-Briefing (Cockpit)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## KI-Briefing — Wochenkommentar (SYNCHRON)\n\n**Vertrag (Cockpit → dieser Workflow):**\nWebhook empfaengt `{ model, prompt }` und ANTWORTET DIREKT mit `{ text: \"<kommentar>\" }`.\n\n**Ablauf:**\n1. PII-Guard: bricht ab, wenn ein `:cloud`-Modell verlangt wird (Ziel-Titel NIE in die Cloud).\n2. Ollama `/api/generate` mit LOKALEM Modell, FREIER Text (kein format:json), stream:false.\n3. `response` extrahieren und als `{ text }` zurueckgeben (responseMode: lastNode).\n\n**Fehler/Timeout:** Das Cockpit faellt automatisch auf das deterministische Briefing zurueck\n(ai-briefing.ts holeKiKommentar liefert dann null). Kein Halb-Zustand, keine leere Mail.",
+        "height": 300,
+        "width": 420
+      },
+      "id": "sticky-doc",
+      "name": "Doku",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-120, -60]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ki-briefing",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [360, 100],
+      "webhookId": "ki-briefing"
+    },
+    {
+      "parameters": {
+        "jsCode": "// PII-Schutz: Briefing-Inhalte (Ziel-Titel) duerfen NIE an ein Cloud-Modell.\n// Case-insensitiv auf den ganzen 'cloud'-Marker (faengt ':cloud' UND '-cloud',\n// z.B. gpt-oss:120b-cloud).\nconst body = $input.first().json.body || {};\nconst model = String(body.model || '');\nif (!model) {\n  throw new Error('Kein Modell angegeben.');\n}\nif (model.toLowerCase().includes('cloud')) {\n  throw new Error('PII-Schutz: Cloud-Modell \"' + model + '\" ist fuer Briefing-Inhalte verboten.');\n}\nif (!body.prompt) {\n  throw new Error('Unvollstaendige Nutzlast (prompt fehlt).');\n}\nreturn $input.all();"
+      },
+      "id": "node-guard",
+      "name": "PII-Guard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [580, 100]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ki.fes-credo.de:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $json.body.model, prompt: $json.body.prompt, stream: false }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "node-ollama",
+      "name": "Ollama (lokal)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 100]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ollama /api/generate liefert { response: \"<freier Text>\", ... }.\n// Als { text } zurueckgeben - responseMode:lastNode macht das zur HTTP-Antwort.\nconst roh = $input.first().json.response;\nreturn [{ json: { text: String(roh == null ? '' : roh).trim() } }];"
+      },
+      "id": "node-aufbereiten",
+      "name": "Antwort aufbereiten",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 100]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "PII-Guard", "type": "main", "index": 0 }]]
+    },
+    "PII-Guard": {
+      "main": [[{ "node": "Ollama (lokal)", "type": "main", "index": 0 }]]
+    },
+    "Ollama (lokal)": {
+      "main": [[{ "node": "Antwort aufbereiten", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

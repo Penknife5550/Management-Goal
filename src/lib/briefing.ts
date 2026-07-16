@@ -17,6 +17,9 @@ export interface BriefingEingabe {
   insights: Insight[]; // bereits nach Schwere sortiert (berechneInsights)
   appUrl: string;
   maxInsights?: number; // wie viele Insights die Mail zeigt (Default 4)
+  // Optionaler KI-Wochenkommentar (ai-briefing.ts). null/undefined -> die Mail
+  // rendert rein deterministisch (Fallback), sonst als warmer Intro-Block.
+  kiKommentar?: string | null;
 }
 
 export interface BriefingMail {
@@ -77,6 +80,15 @@ export function rendereBriefing(e: BriefingEingabe): BriefingMail | null {
   const farbe = TON_FARBE[urteil.ton];
   const name = escapeHtml(e.name);
   const heuteUrl = `${e.appUrl}/heute`;
+  const kiKommentar = e.kiKommentar?.trim() ? escapeHtml(e.kiKommentar.trim()) : null;
+
+  // Optionaler KI-Wochenkommentar (heller Block, dezent kursiv). Fehlt er, wird
+  // nichts gerendert -> die Mail ist exakt das deterministische Cut-1-Briefing.
+  const kommentarHtml = kiKommentar
+    ? `<table cellpadding="0" cellspacing="0" width="100%" style="background-color:#f7f7f6;border-radius:6px;margin:0 0 20px;">
+            <tr><td style="padding:14px 18px;color:#4b5563;font-size:14px;line-height:1.6;font-style:italic;">${kiKommentar}</td></tr>
+          </table>`
+    : "";
 
   // ---- HTML ----
   const insightZeilenHtml =
@@ -112,7 +124,7 @@ export function rendereBriefing(e: BriefingEingabe): BriefingMail | null {
         <tr><td style="height:4px;background-color:#fbc900;font-size:0;line-height:0;">&nbsp;</td></tr>
         <tr><td style="background-color:#ffffff;padding:32px;">
           <p style="color:#374151;font-size:15px;margin:0 0 20px;">Guten Morgen ${name}, hier ist dein Wochenstart.</p>
-
+          ${kommentarHtml}
           <table cellpadding="0" cellspacing="0" width="100%" style="background-color:${farbe.flaeche};border-left:4px solid ${farbe.akzent};border-radius:6px;margin:0 0 24px;">
             <tr><td style="padding:16px 18px;">
               <div style="color:#1a1a1a;font-size:16px;font-weight:bold;margin:0 0 4px;">Gewinne ich? ${escapeHtml(urteil.titel)}</div>
@@ -144,6 +156,7 @@ export function rendereBriefing(e: BriefingEingabe): BriefingMail | null {
 
   const text = [
     `Guten Morgen ${e.name}, hier ist dein Wochenstart.`,
+    ...(kiKommentar ? ["", e.kiKommentar!.trim()] : []),
     "",
     `Gewinne ich? ${urteil.titel}`,
     urteil.text,

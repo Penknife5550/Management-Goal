@@ -8,6 +8,7 @@
 // Auswahl: aktive Nutzer mit >=1 FOKUS-Ziel. Inhalt: Tagesurteil + Top-Insights.
 // ============================================================
 import { Prisma } from "@prisma/client";
+import { holeKiKommentar } from "@/lib/ai-briefing";
 import { rendereBriefing } from "@/lib/briefing";
 import { prisma } from "@/lib/db";
 import { ladeInsightsFuerNutzer } from "@/lib/insight-data";
@@ -92,7 +93,10 @@ export async function dispatchMontagsBriefing(jetzt = new Date()): Promise<Brief
 
     try {
       const { insights, fokusAmpeln } = await ladeInsightsFuerNutzer(u.id, jetzt);
-      const mail = rendereBriefing({ name: u.name, fokusAmpeln, insights, appUrl });
+      // KI-Veredelung (optional): wirft nie, liefert null wenn nicht konfiguriert
+      // oder Ollama/n8n ausfaellt -> deterministischer Fallback.
+      const kiKommentar = await holeKiKommentar({ fokusAmpeln, insights });
+      const mail = rendereBriefing({ name: u.name, fokusAmpeln, insights, appUrl, kiKommentar });
       // Kein FOKUS-Ziel mehr (Race zwischen Auswahl und Laden) -> nichts senden.
       if (!mail) {
         await reservierungFreigeben();

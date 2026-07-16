@@ -85,4 +85,36 @@ describe("rendereBriefing", () => {
     const mail = rendereBriefing({ ...basis, fokusAmpeln: ["GRUEN"], insights: [] });
     expect(mail!.html).toMatch(/Nichts Auffaelliges/);
   });
+
+  it("rendert den KI-Kommentar (HTML + Text), wenn vorhanden", () => {
+    const mail = rendereBriefing({
+      ...basis,
+      fokusAmpeln: ["GRUEN"],
+      insights: [],
+      kiKommentar: "Starke Woche, bleib dran!",
+    });
+    expect(mail!.html).toContain("Starke Woche, bleib dran!");
+    expect(mail!.text).toContain("Starke Woche, bleib dran!");
+  });
+
+  it("escaped auch den KI-Kommentar (kein Markup-Durchschlag)", () => {
+    const mail = rendereBriefing({
+      ...basis,
+      fokusAmpeln: ["GRUEN"],
+      insights: [],
+      kiKommentar: "<b>fett</b>",
+    });
+    expect(mail!.html).not.toContain("<b>fett</b>");
+    expect(mail!.html).toContain("&lt;b&gt;");
+  });
+
+  it("ohne KI-Kommentar (null): rein deterministisch, kein Kommentar-Block", () => {
+    const mail = rendereBriefing({
+      ...basis,
+      fokusAmpeln: ["GRUEN"],
+      insights: [],
+      kiKommentar: null,
+    });
+    expect(mail!.html).not.toContain("font-style:italic");
+  });
 });

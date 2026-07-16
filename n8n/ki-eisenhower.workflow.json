@@ -29,7 +29,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// PII-Schutz: Aufgaben-Inhalte duerfen NIE an ein :cloud-Modell (routet auf ollama.com).\nconst body = $input.first().json.body || {};\nconst model = String(body.model || '');\nif (!model) {\n  throw new Error('Kein Modell angegeben.');\n}\nif (model.includes(':cloud')) {\n  throw new Error('PII-Schutz: Cloud-Modell \"' + model + '\" ist fuer Aufgaben-Inhalte verboten.');\n}\nif (!body.prompt || !body.callbackUrl || !body.jobKey || !body.taskId) {\n  throw new Error('Unvollstaendige Nutzlast (prompt/callbackUrl/jobKey/taskId).');\n}\nreturn $input.all();"
+        "jsCode": "// PII-Schutz: Aufgaben-Inhalte duerfen NIE an ein Cloud-Modell (routet auf ollama.com).\n// Case-insensitiv auf den ganzen 'cloud'-Marker (faengt ':cloud' UND '-cloud',\n// z.B. gpt-oss:120b-cloud).\nconst body = $input.first().json.body || {};\nconst model = String(body.model || '');\nif (!model) {\n  throw new Error('Kein Modell angegeben.');\n}\nif (model.toLowerCase().includes('cloud')) {\n  throw new Error('PII-Schutz: Cloud-Modell \"' + model + '\" ist fuer Aufgaben-Inhalte verboten.');\n}\nif (!body.prompt || !body.callbackUrl || !body.jobKey || !body.taskId) {\n  throw new Error('Unvollstaendige Nutzlast (prompt/callbackUrl/jobKey/taskId).');\n}\nreturn $input.all();"
       },
       "id": "node-guard",
       "name": "PII-Guard",
