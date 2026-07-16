@@ -790,3 +790,46 @@ KEINE Migration (LearningLog existierte, `erwartet` wurde schon beim FOKUS-Heben
 ### 20.3 Offene GoLive-Punkte (unveraendert)
 Backup-/DSGVO-Loeschkonzept, Adoptions-Telemetrie. Follow-up (Task-Chip): Lib-PII-Guard fuer
 den KI-Eisenhower-Trigger. Nutzerverwaltungs-UI fehlt (AP5 zeigt nur, was geseedet/vorhanden ist).
+
+## 21. NÄCHSTE SESSION — Nutzerverwaltung (MVP) [beschlossen 2026-07-16]
+
+> Ziel des Users: **morgen live**, danach als naechstes die **Nutzerverwaltung**, damit
+> echte Fuehrungskraefte anlegbar werden (macht AP5 Fuehrungs-Ueberblick erst voll nutzbar).
+> Go-Live-Vorbereitung: siehe **GOLIVE.md** (Secrets, Deploy, Cron, offene Punkte).
+
+### 21.1 Warum
+AP5 `/ueberblick` zeigt nur Nutzer, die in der DB existieren. Aktuell gibt es dafuer KEIN
+UI — neue Nutzer gehen nur per Seed/SQL. Fuer echten Mehrbenutzer-Betrieb (mehrere
+Fuehrungskraefte einer Rechtseinheit) fehlt genau dieser Baustein.
+
+### 21.2 Scope MVP (ADMIN-only)
+- Neue Seite `/nutzer` (oder Tab in `/einstellungen`), Middleware-Gate wie `/ueberblick`/
+  `/einstellungen` (nur ADMIN), ADMIN-only Nav-Link.
+- **Liste**: aktive + inaktive Nutzer der EIGENEN Rechtseinheit (rechtseinheit-scoped wie AP5),
+  mit Name/E-Mail/Rolle/Status.
+- **Anlegen**: Name, E-Mail, Rolle (ADMIN|NUTZER). Neuer Nutzer bekommt
+  `rechtseinheitId` des anlegenden Admins (Multi-Tenant). Onboarding per **Magic-Link-
+  Einladung** (kein Passwort noetig — der Login-Magic-Link-Flow existiert schon, AP6) ODER
+  optional Initial-Passwort. Empfehlung: Magic-Link (kein Klartext-Passwort im UI).
+- **Deaktivieren**: `isActive=false` (Soft). AP6-Session-Revocation greift sofort
+  (getAktuellerNutzer prueft isActive DB-frisch) — kein Extra-Aufwand.
+- **Rolle/Name aendern** (PATCH). E-Mail-Aenderung optional (Unique-Constraint beachten).
+
+### 21.3 Vorhandene Bausteine (wiederverwendbar)
+- **User-Modell komplett** (email @unique, name, role UserRole, isActive, passwordHash?,
+  rechtseinheitId + Relation) — KEINE Migration noetig.
+- **withAdmin** (admin-guard.ts) fuer die Routen; **getAktuellerNutzer().rechtseinheitId**
+  als Scope; **Middleware-ADMIN-Gate**-Muster (middleware.ts, wie /ueberblick).
+- **Magic-Link**: `/api/auth/magic-link` (POST) + Einloese-Route + Event `magic-link`
+  (default-email-templates.ts) — fuer Einladungen wiederverwenden bzw. ein Event
+  `nutzer-einladung` analog anlegen. **Mailer** `sendEventEmail`.
+- **bcrypt** (falls Initial-Passwort-Variante), **Zod-Validierung** (validation/), DTO-Muster.
+- **Muster fuers UI**: einstellungen-client (ADMIN-Gate im Client), Radix-Dialog fuer
+  Anlegen/Bearbeiten (ziel-abschluss-modal als Vorlage), Listen-/Karten-Muster (ueberblick).
+
+### 21.4 Nicht vergessen
+- E-Mail-Aenderung: Unique-Constraint (409 sauber). Selbst-Deaktivierung des einzigen Admins
+  verhindern (sonst sperrt man sich aus). Owner-Scope: ein Admin darf nur Nutzer der EIGENEN
+  Rechtseinheit sehen/aendern (kein Cross-Tenant). Audit-Log-Eintraege fuer Anlegen/Deaktivieren
+  (lib/audit.ts erweitern) — passt zur Personalrat/DSB-Zusage.
+- Danach: `SEED_DEMO`-Demo-Nutzer koennen weg, sobald echte Nutzer da sind.
