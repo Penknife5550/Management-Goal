@@ -718,3 +718,39 @@ Voraussetzung fuer echten Versand: aktive `SmtpConfig` (Einstellungen -> SMTP) u
 ### 18.4 Naechster offener Zug
 KI-Veredelung (optionaler Layer auf AP3) ODER AP 4 (Drucker-Tiefe) / AP 5 (GF-Aggregat).
 GoLive-Reife (Backup/DSGVO-Loeschkonzept, Adoptions-Telemetrie) weiter offen.
+
+## 19. Session 2026-07-16 (Teil 2): KI-Veredelung des Briefings (GEBAUT, optionaler Layer)
+
+> Der KI-Layer auf AP3: die KI formuliert die Findings zu einem warmen Wochen-
+> kommentar aus, erfindet nichts. Kern-Prinzip **KI mit hartem Fallback** - faellt
+> Ollama/n8n aus, geht das deterministische Cut-1-Briefing unveraendert raus.
+> Verifiziert: tsc sauber · **183/183 Unit-Tests** · End-to-End BEIDE Pfade (Fallback
+> ohne Webhook -> kein KI-Block; KI-Pfad gegen Stub -> Kommentar gerendert, Prompt
+> mit Anti-Halluzinations-Leitplanke) · Render visuell · Security-Review (1 MAJOR
+> gefunden+gefixt).
+
+### 19.1 Was gebaut wurde
+- `src/lib/ai-briefing.ts`: `baueBriefingPrompt` (strenge "erfinde-nichts"-Leitplanke),
+  `bereinigeKiKommentar` (Tag-Strip + Laengen-Cap 800, null bei Unbrauchbarem),
+  `istLokalesModell` (PII-Guard), `holeKiKommentar` (SYNCHRONER n8n-Aufruf, 30s-Timeout,
+  wirft nie -> null = Fallback).
+- `src/lib/briefing.ts`: optionaler `kiKommentar` -> warmer Intro-Block (escaped);
+  fehlt er, exakt das Cut-1-Briefing.
+- `src/lib/briefing-service.ts`: ruft `holeKiKommentar` pro Nutzer, hart entkoppelt.
+- `n8n/ki-briefing.workflow.json`: SYNCHRONER Workflow (responseMode lastNode):
+  Webhook -> PII-Guard -> Ollama /api/generate (freier Text) -> `{ text }`. README + `.env.example`.
+- Env: `N8N_BRIEFING_WEBHOOK_URL` (leer = Fallback).
+
+### 19.2 Security-Review-Fix (MAJOR, 3/3 bestaetigt)
+Der PII-Guard prueft jetzt **case-insensitiv auf "cloud"** (vorher nur `:cloud`) - reale
+Ollama-Cloud-Modelle heissen `-cloud` (z.B. `gpt-oss:120b-cloud`) und waeren sonst als
+"lokal" durchgerutscht -> interne Ziel-Daten an ollama.com. Gefixt an ALLEN drei Stellen:
+`ai-briefing.ts` + beide n8n-Workflows (auch der bestehende `ki-eisenhower.workflow.json`
+hatte dieselbe Luecke). Hinweis: der Eisenhower-Trigger (`api/tasks/[id]/classify`) hat
+KEINEN Lib-Guard, verlaesst sich allein auf den (jetzt geharteten) n8n-Node - ein Lib-Guard
+dort waere eine sinnvolle Folge-Haertung.
+
+### 19.3 Betrieb
+n8n-Workflow `ki-briefing` importieren + aktivieren, `N8N_BRIEFING_WEBHOOK_URL` setzen,
+`AI_MODEL` auf ein LOKALES Modell (nie `-cloud`/`:cloud`). Ollama muss erreichbar sein.
+Ohne all das laeuft das deterministische Briefing normal weiter.
