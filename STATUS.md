@@ -672,3 +672,49 @@ In Produktion: `ADMIN_INITIAL_PASSWORD` setzen + `JWT_SECRET` (openssl rand -hex
 - Backup-/DSGVO-Löschkonzept (§16.5) weiter offen.
 - Adoptions-Telemetrie (Plan-Risiko #1) weiter offen.
 - Dann: AP 3 (KI-Briefing), AP 4 (Drucker-Tiefe), AP 5 (GF-Aggregat).
+
+## 18. Session 2026-07-16: AP3 — Montags-Briefing (GEBAUT, Cut 1 deterministisch)
+
+> Der beschlossene „Kracher" steht: ein woechentliches Briefing per Mail, das das
+> Tagesurteil (AP2) + Top-Insights (AP1) in eine scanbare CREDO-Mail giesst.
+> Verifiziert: tsc sauber · **167/167 Unit-Tests** · 7/7 E2E · End-to-End DryRun
+> (Cron-Guard 403, versendet:1, 2. Lauf uebersprungen:1) · Render visuell geprueft ·
+> Fokus-Review (0 CRITICAL/0 MAJOR), beide INFO-Findings gefixt.
+
+### 18.1 Entscheidung: Cut 1 REIN DETERMINISTISCH (keine KI im Versand)
+`insights.ts`-`detail`-Saetze sind bereits deutsches Klartext -> Cut 1 formuliert
+regelbasiert, robust, ohne externe Deps. Die KI-Veredelung (Ollama via n8n) ist der
+optionale Layer DANACH: der Briefing-Text wird dann einfach Prompt-Input. Bewusst NICHT
+jetzt, weil die n8n/Ollama-Infra wackelt (n8n-Import offen) und es eine echte Luecke hat
+(keine generische Text-Funktion; die Eisenhower-Pipeline ist hart auf `{important,urgent,
+confidence,reasoning}` verdrahtet — bräuchte 2. Workflow + 2. Callback + Batch-Orchestrierung).
+
+### 18.2 Was gebaut wurde
+- `src/lib/briefing.ts` (rein, getestet): `rendereBriefing()` -> Betreff/HTML/Text.
+  Nutzt `bewerteTag` (AP2) fuer das „Gewinne ich?"-Urteil; Betreff spiegelt den Ton
+  (bewusst OHNE Zahl — Regression „0 Punkte" bei roter Ampel ohne Warn-Insight gefixt).
+  Jeder dynamische Wert (Ziel-Titel!) ist HTML-escaped (XSS-Test in briefing.test.ts).
+- `src/lib/briefing-service.ts`: `dispatchMontagsBriefing()` nach reminders.ts-Muster.
+  Auswahl: aktive Nutzer mit `montagsBriefingEnabled` + >=1 FOKUS-Ziel. Idempotenz je
+  ISO-Woche ueber `ReminderDispatch` (event="montags-briefing", KEINE Kollision mit dem
+  Reminder). SENT/SKIPPED behalten die Reservierung, FAILED gibt sie frei (Retry).
+- `src/lib/mailer.ts`: neue `sendRenderedEmail()` fuer vorgerendertes HTML (umgeht das
+  variablen-escapende Template-System, das keine Insight-Liste kann) — reuse von
+  Allowlist + DryRun + EmailLog + Betreff-CRLF-Schutz.
+- `src/lib/insight-data.ts`: `ladeInsightsFuerNutzer()` — die owner-scoped Queries aus
+  /api/insights extrahiert (DRY, jetzt von Route UND Briefing genutzt).
+- `src/app/api/cron/montags-briefing/route.ts`: Cron (CRON_SECRET, Middleware-frei).
+- Schema: `User.montagsBriefingEnabled @default(true)` (Migration `..._montags_briefing_schalter`).
+- Tests: `briefing.test.ts` (Render, Escaping, Regression) + `briefing-dispatch.test.ts`
+  (Idempotenz/SKIPPED/FAILED/SENT mit gemocktem Prisma).
+
+### 18.3 Betrieb: Cron einrichten (Host-Crontab, Europe/Berlin)
+```cron
+0 7 * * 1 curl -fsS -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/montags-briefing
+```
+Voraussetzung fuer echten Versand: aktive `SmtpConfig` (Einstellungen -> SMTP) und
+`MAIL_DRY_RUN` NICHT auf "1". Kill-Switch: AppSetting `montagsBriefingGloballyEnabled`.
+
+### 18.4 Naechster offener Zug
+KI-Veredelung (optionaler Layer auf AP3) ODER AP 4 (Drucker-Tiefe) / AP 5 (GF-Aggregat).
+GoLive-Reife (Backup/DSGVO-Loeschkonzept, Adoptions-Telemetrie) weiter offen.
